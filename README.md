@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # 📚 Complete Documentation for @wlindabla/event-dispatcher
 
 
@@ -1131,7 +1130,3 @@ yarn test:BaseEvent
 ---
 
 ##
-=======
-# event_dispatcher
-A modern, type-safe, and high-performance event dispatcher designed for both Node.js and Browser environments. Features priority-based listening, asynchronous support, and native API integration.
->>>>>>> e2b032c5cc9f5732b5ee50a9626b4a76a1b4a1e8
