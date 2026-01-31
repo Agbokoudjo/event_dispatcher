@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Test Browser Event Dispatcher</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; line-height: 1.6; }
+        #log { background: #f4f4f4; padding: 10px; border-radius: 5px; height: 200px; overflow-y: auto; border: 1px solid #ddd; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>Browser Event Dispatcher Test</h1>
+    <button id="btn-click">Déclencher l'événement</button>
+    
+    <h3>Logs de la console :</h3>
+    <div id="log"></div>
+
+    <script type="module" src="./browser-test.ts"></script>
+</body>
+</html>
