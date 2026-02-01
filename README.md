@@ -6,14 +6,11 @@
 ```markdown
 # @wlindabla/event-dispatcher
 
-> A flexible, Symfony-inspired event dispatcher for JavaScript & TypeScript with optimized implementations for Browser and Node.js environments.
+A flexible, Symfony-inspired event dispatcher for JavaScript & TypeScript with optimized implementations for Browser and Node.js environments.
 
->Event Dispatcher is a robust and flexible event management library. Unlike other dispatchers, it seamlessly bridges the gap between server-side and client-side development by leveraging native platform APIs while maintaining a consistent, priority-aware interface.
+Event Dispatcher is a robust and flexible event management library. 
+Unlike other dispatchers, it seamlessly bridges the gap between server-side and client-side development by leveraging native platform APIs while maintaining a consistent, priority-aware interface.
 
-[![npm version](https://badge.fury.io/js/%40wlindabla%2Fevent-dispatcher.svg)](https://www.npmjs.com/package/@wlindabla/event-dispatcher)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.3+-blue.svg)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-73%20passed-brightgreen.svg)]()
 
 ## ✨ Features
 
