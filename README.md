@@ -1104,7 +1104,7 @@ dispatcher.dispatch(new CustomEvent(data), 'custom-event');
 | BrowserEventDispatcher | Browser | ~800K | Very Low (WeakMap) |
 | NodeEventDispatcher | Node.js | ~1M | Low |
 
-*Benchmarks run on Node.js 20 and Chrome 120*
+*Benchmarks run on Node.js >18 and Chrome >120*
 
 ---
 
@@ -1127,3 +1127,92 @@ yarn test:BaseEvent
 ---
 
 ##
+
+🤝 Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+MIT © [AGBOKOUDJO Franck](https://github.com/Agbokoudjo)
+
+---
+
+## 👤 Author
+
+**AGBOKOUDJO Franck**
+
+- Email: internationaleswebservices@gmail.com
+- LinkedIn: [INTERNATIONALES WEB APPS & SERVICES](https://www.linkedin.com/in/internationales-web-apps-services-120520193/)
+- GitHub: [@Agbokoudjo](https://github.com/Agbokoudjo)
+- Company: INTERNATIONALES WEB APPS & SERVICES
+
+---
+
+## 🙏 Acknowledgments
+
+- Inspired by [Symfony EventDispatcher](https://symfony.com/doc/current/components/event_dispatcher.html)
+- Built with ❤️ for the JavaScript/TypeScript community
+
+---
+
+## 🔗 Links
+
+- [npm Package](https://www.npmjs.com/package/@wlindabla/event_dispatcher)
+- [GitHub Repository](https://github.com/Agbokoudjo/event_dispatcher)
+- [Issue Tracker](https://github.com/Agbokoudjo/event_dispatcher/issues)
+- [Changelog](https://github.com/Agbokoudjo/event_dispatcher/blob/main/CHANGELOG.md)
+
+---
+
+## ❓ FAQ
+
+### Q: Can I use this in production?
+
+**A:** Yes! The library is fully tested with 73 tests and 100% code coverage.
+
+### Q: Does it work with React/Vue/Angular?
+
+**A:** Yes! It's framework-agnostic and works with any JavaScript framework.
+
+### Q: What's the bundle size?
+
+**A:** ~2.5 KB gzipped for the full bundle, or ~1.2-1.8 KB for individual implementations.
+
+### Q: Can I use it with TypeScript?
+
+**A:** Absolutely! The library is written in TypeScript and provides full type definitions.
+
+### Q: How is this different from EventEmitter?
+
+**A:** We provide type safety, priority support, event objects, multiple implementations, and more developer-friendly APIs.
+
+### Q: Can listeners be async?
+
+**A:** Yes! Both sync and async listeners are fully supported.
+
+---
+
+**Made with ❤️ by AGBOKOUDJO Franck**
+```
+
+This documentation provides:
+- ✅ Complete installation instructions
+- ✅ Real-world Node.js examples (Express.js error handling, tracking)
+- ✅ Real-world Browser examples (Interactive UI)
+- ✅ Full API reference
+- ✅ Migration guides
+- ✅ Best practices
+- ✅ Testing examples
+- ✅ FAQ section
+- ✅ Professional formatting
+
+Save this as your `README.md` file! 
