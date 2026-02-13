@@ -171,31 +171,3 @@ export interface EventDispatcherInterface {
      */
     hasListeners(eventName?: string | null): boolean;
 }
-
-export interface EventEmitterInterface {
-
-    /**
-    * Emit an event (works in both environments)
-    */
-    emit(eventName: string, data: any, options?: CustomEventInit): void;
-
-    /**
-   * Listen to an event (works in both environments)
-   */
-    on(eventName: string, handler: (data: any) => void): void;
-
-    /**
-     * Listen to an event once (works in both environments)
-     */
-    once(eventName: string, handler: (data: any) => void): void;
-
-    /**
-    * Remove event listener (works in both environments)
-    */
-    off(eventName: string, handler: (data: any) => void): void;
-
-    /**
-   * Remove all listeners for an event
-   */
-    removeAllListeners(eventName?: string): void;
-}

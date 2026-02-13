@@ -1,12 +1,8 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-    entry: {
-        index: 'src/index.ts',
-        'implementations/BrowserEventDispatcher': 'src/implementations/BrowserEventDispatcher.ts',
-        'implementations/NodeEventDispatcher': 'src/implementations/NodeEventDispatcher.ts',
-        'implementations/SimpleEventDispatcher': 'src/implementations/SimpleEventDispatcher.ts',
-    },
+    entry: ['src/**/*.ts',],
+    bundle: false,
     format: ['cjs', 'esm'],
     dts: true,
     splitting: false,
