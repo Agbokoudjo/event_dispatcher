@@ -1,17 +1,19 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-    entry: ['src/**/*.ts',],
-    bundle: false,
+    entry: {
+        index: 'src/index.ts',
+        browser: 'src/implementations/BrowserEventDispatcher.ts',
+        node: 'src/implementations/NodeEventDispatcher.ts',
+    },
     format: ['cjs', 'esm'],
-    dts: true,
     splitting: false,
-    sourcemap: true,
+    dts: true,
+    bundle: true,        
+    external: ['events'], // Pour le dispatcher Node
     clean: true,
-    treeshake: true,
-    minify: false,
-    target: 'esnext',
     outDir: 'dist',
-    tsconfig: './tsconfig.json',
-    external: ['events'], // EventEmitter de Node.js
+    outExtension({ format }) {
+        return { js: format === 'esm' ? '.mjs' : '.js' };
+    },
 });
