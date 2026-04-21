@@ -43,7 +43,9 @@ pnpm add @wlindabla/event_dispatcher
 import { createEventDispatcher, BaseEvent } from '@wlindabla/event_dispatcher';
 
 // Create dispatcher (auto-detects environment)
-const dispatcher = createEventDispatcher();
+const dispatcher = new BrowserEventDispatcher() in browsers
+                   || new NodeEventDispatcher() in Node.js
+                   || new SimpleEventDispatcher() in other environments
 
 // Define custom event
 class UserCreatedEvent extends BaseEvent {
@@ -299,18 +301,6 @@ dispatcher.dispatch(event, 'order.validate');
 ---
 
 ## 🌍 Environment-Specific Usage
-
-### Auto-Detection (Recommended)
-
-```typescript
-import { createEventDispatcher } from '@wlindabla/event_dispatcher';
-
-// Automatically uses the best implementation for your environment
-const dispatcher = createEventDispatcher();
-// → BrowserEventDispatcher in browsers
-// → NodeEventDispatcher in Node.js
-// → SimpleEventDispatcher in other environments
-```
 
 ---
 
@@ -854,16 +844,6 @@ describe('User Events', () => {
 ---
 
 ## 📚 API Reference
-
-### `createEventDispatcher()`
-
-Automatically creates the most appropriate EventDispatcher for the current environment.
-
-```typescript
-function createEventDispatcher(): EventDispatcherInterface
-```
-
-**Returns:** `BrowserEventDispatcher` | `NodeEventDispatcher` | `SimpleEventDispatcher`
 
 ---
 

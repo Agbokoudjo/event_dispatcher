@@ -1,6 +1,6 @@
 {
   "name": "@wlindabla/event_dispatcher",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A flexible, Symfony-inspired event dispatcher for JavaScript & TypeScript with optimized implementations for Browser and Node.js environments",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
