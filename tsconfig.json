@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "ignoreDeprecations": "6.0",
     /* Language and Environment */
   "target": "ESNext",
     "lib": ["DOM", "DOM.Iterable","ESNext"],
@@ -18,7 +19,6 @@
      "rootDir": "./src",  
     "removeComments": false,
     "importHelpers": true,
-    "downlevelIteration": true,
      "noEmit": false, 
 
     /* Interop Constraints */
@@ -37,7 +37,8 @@
     "noImplicitOverride": true,
 
     /* Completeness */
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "types": ["node"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "tests","tests/NodeJs/server-test.ts","browser-test.ts"]

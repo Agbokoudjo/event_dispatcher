@@ -10,7 +10,7 @@ export default defineConfig({
     splitting: false,
     dts: true,
     bundle: true,        
-    external: ['events'], // Pour le dispatcher Node
+    external: ['node:events'], // Pour le dispatcher Node
     clean: true,
     outDir: 'dist',
     outExtension({ format }) {

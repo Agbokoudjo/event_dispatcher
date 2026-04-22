@@ -10,7 +10,7 @@
  * For more information, please feel free to contact the author.
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from 'node:events';
 import type {
     EventDispatcherInterface
 } from '../contracts';
