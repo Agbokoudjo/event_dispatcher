@@ -92,6 +92,22 @@ export interface EventDispatcherInterface {
     dispatch<T extends object>(event: T, eventName?: string | null): T;
 
     /**
+     * Dispatches an event and awaits each listener sequentially,
+     * in priority order.
+     *
+     * Use this when subscribers perform async operations (HTTP, file I/O, DB…)
+     * and you need to read results from the event object after dispatch.
+     *
+     * stopPropagation() is honoured between each awaited listener.
+     *
+     * @example
+     * const event = new InitializingUploadEvent(options);
+     * await dispatcher.dispatchAsync(event, HttpFileUploaderEvents.INITIALIZE_UPLOAD);
+     * const mediaId = event.mediaId; // safely populated by the subscriber
+     */
+    dispatchAsync<T extends object>(event: T, eventName?: string | null): Promise<T>;
+    
+    /**
      * Adds an event listener that listens on the specified event.
      *
      * @param eventName - The event to listen on
