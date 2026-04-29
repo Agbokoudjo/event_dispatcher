@@ -79,6 +79,20 @@ dispatcher.dispatch(event, 'user.created');
   - [Browser Examples](#browser-examples)
 - [Advanced Usage](#advanced-usage)
 - [API Reference](#api-reference)
+    - [dispatch()](#dispatch)
+    - [dispatchAsync()](#dispatchasync)
+    - [Signature](#signature)
+    - [Parameters](#parameters)
+    - [Return Value](#return-value)
+    - [When to Use dispatchAsync()](#when-to-use-dispatchasync)
+    - [How It Works](#how-it-works)
+    - [Basic Usage](#basic-usage)
+    - [With BrowserEventDispatcher](#with-browsereventdispatcher)
+    - [With NodeEventDispatcher](#with-nodeeventdispatcher)
+    - [stopPropagation() Support](#stoppropagation-support)
+    - [Error Handling](#error-handling)
+    - [dispatch() vs dispatchAsync()](#dispatch-vs-dispatchasync)
+  
 - [Migration Guide](#migration-guide)
 
 ---
@@ -996,6 +1010,285 @@ Sets the maximum number of listeners (default: 100).
 Gets the current maximum listeners limit.
 
 ---
+
+---
+
+## Overview
+
+> This section is a placeholder for your existing overview content.
+
+---
+
+## API Reference
+
+### dispatch()
+
+> This section is a placeholder for your existing `dispatch()` documentation.
+
+---
+
+### dispatchAsync()
+
+`dispatchAsync()` is an extension beyond the Symfony EventDispatcher pattern,
+designed specifically for JavaScript's async nature.  
+It dispatches an event and **awaits each listener sequentially**, in priority order,
+before moving to the next one.
+
+---
+
+#### Signature
+
+```typescript
+public async dispatchAsync<T extends object>(
+    event: T,
+    eventName?: string | null
+): Promise<T>
+```
+
+---
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `event` | `T extends object` | ✅ Yes | The event object to dispatch. Mutated in place by listeners (e.g. `event.mediaId = ...`). |
+| `eventName` | `string \| null` | ❌ No | The event name. Defaults to `event.constructor.name` if omitted. |
+
+---
+
+#### Return Value
+
+Returns `Promise<T>` — the same event object passed in, after all listeners have been awaited.  
+Since listeners mutate the event in place, you can read their results directly from the event object after `await`.
+
+---
+
+#### When to Use dispatchAsync()
+
+Use `dispatchAsync()` when **at least one subscriber performs an async operation**
+(HTTP request, database call, file I/O, etc.) **and you need to read the result
+from the event object after dispatch.**
+
+```typescript
+// ✅ Use dispatchAsync() — subscriber sets event.mediaId asynchronously
+const event = new InitializingUploadEvent(options);
+await dispatcher.dispatchAsync(event, 'upload.initialize');
+console.log(event.mediaId); // safely populated by the subscriber
+
+// ✅ Use dispatch() — no async result needed
+dispatcher.dispatch(new UserLoggedInEvent(user), 'user.login');
+```
+
+---
+
+#### How It Works
+
+`dispatchAsync()` executes listeners **sequentially** — it awaits each one before
+calling the next. This guarantees two things:
+
+- **Priority order is preserved** — a listener with priority `10` fully completes
+  before the listener with priority `5` starts.
+- **`stopPropagation()` works correctly** — a listener can stop the chain
+  even inside an async flow.
+
+After the internal Map loop completes, the native primitive is notified automatically:
+
+- **Browser** → `eventTarget.dispatchEvent(CustomEvent)` is fired,
+  so external `window.addEventListener()` listeners also receive the event.
+- **Node.js** → `emitter.emit()` is fired,
+  so external `emitter.on()` listeners also receive the event.
+
+```
+await dispatcher.dispatchAsync(event, 'upload.initialize')
+        │
+        ├─ await listener A (priority 10) — e.g. HTTP POST /upload/init
+        │         └─ event.mediaId = response.mediaId  ✓
+        │
+        ├─ await listener B (priority 5)  — e.g. log to DB
+        │         └─ completes            ✓
+        │
+        └─ dispatchNative() — notifies window / emitter external listeners
+```
+
+---
+
+#### Basic Usage
+
+```typescript
+import { SimpleEventDispatcher } from '@wlindabla/event_dispatcher';
+
+class UploadInitializedEvent {
+    public mediaId: string | null = null;
+
+    constructor(public readonly fileName: string) {}
+}
+
+const dispatcher = new SimpleEventDispatcher();
+
+// Async subscriber — sets event.mediaId after HTTP call
+dispatcher.addListener('upload.initialize', async (event: UploadInitializedEvent) => {
+    const response = await fetch('/api/upload/init', {
+        method: 'POST',
+        body: JSON.stringify({ fileName: event.fileName }),
+    });
+    const data = await response.json();
+    event.mediaId = data.mediaId;
+});
+
+// Dispatch and await — mediaId is guaranteed to be set after this line
+const event = new UploadInitializedEvent('video.mp4');
+await dispatcher.dispatchAsync(event, 'upload.initialize');
+
+console.log(event.mediaId); // ✅ "med_abc123"
+```
+
+---
+
+#### With BrowserEventDispatcher
+
+```typescript
+import { BrowserEventDispatcher } from '@wlindabla/event_dispatcher';
+
+// Pass window so external addEventListener() listeners are notified automatically
+const dispatcher = new BrowserEventDispatcher(window);
+
+// External listener — no addListener() needed
+window.addEventListener('upload.initialize', (e) => {
+    const event = (e as CustomEvent).detail as UploadInitializedEvent;
+    console.log('Native listener received:', event.mediaId);
+    // Note: mediaId is already set here because dispatchNative()
+    // is called AFTER all async listeners have completed
+});
+
+// Subscriber via dispatcher
+dispatcher.addListener('upload.initialize', async (event: UploadInitializedEvent) => {
+    const response = await fetch('/api/upload/init', { method: 'POST' });
+    const data = await response.json();
+    event.mediaId = data.mediaId;
+});
+
+const event = new UploadInitializedEvent('image.png');
+await dispatcher.dispatchAsync(event, 'upload.initialize');
+
+// At this point:
+// ✅ dispatcher subscriber has run and set event.mediaId
+// ✅ window listener has been notified with the populated event
+console.log(event.mediaId); // "med_xyz789"
+```
+
+---
+
+#### With NodeEventDispatcher
+
+```typescript
+import { NodeEventDispatcher } from '@wlindabla/event_dispatcher';
+import { EventEmitter } from 'node:events';
+
+const sharedEmitter = new EventEmitter();
+const dispatcher = new NodeEventDispatcher(sharedEmitter);
+
+// External listener — no addListener() needed
+sharedEmitter.on('file.processed', (event: FileProcessedEvent) => {
+    console.log('Native emitter listener received:', event.result);
+    // Note: event.result is already set here because dispatchNative()
+    // is called AFTER all async listeners have completed
+});
+
+// Subscriber via dispatcher
+dispatcher.addListener('file.processed', async (event: FileProcessedEvent) => {
+    const result = await processFile(event.filePath);
+    event.result = result;
+});
+
+const event = new FileProcessedEvent('/uploads/video.mp4');
+await dispatcher.dispatchAsync(event, 'file.processed');
+
+// At this point:
+// ✅ dispatcher subscriber has run and set event.result
+// ✅ sharedEmitter listener has been notified with the populated event
+console.log(event.result); // { size: 1024, duration: 120 }
+```
+
+---
+
+#### stopPropagation() Support
+
+`dispatchAsync()` fully honours `stopPropagation()`.  
+Once a listener calls `event.stopPropagation()`, no further listeners are called —
+even if they are async.
+
+```typescript
+class OrderCreatedEvent {
+    private stopped = false;
+
+    isPropagationStopped(): boolean { return this.stopped; }
+    stopPropagation(): void { this.stopped = true; }
+
+    constructor(public readonly orderId: string) {}
+}
+
+dispatcher.addListener('order.created', async (event: OrderCreatedEvent) => {
+    await notifyWarehouse(event.orderId);
+    console.log('Listener A — warehouse notified');
+    event.stopPropagation(); // ← stops the chain here
+}, 10);
+
+dispatcher.addListener('order.created', async (event: OrderCreatedEvent) => {
+    // ❌ Never reached — propagation was stopped by listener A
+    await sendConfirmationEmail(event.orderId);
+    console.log('Listener B — email sent');
+}, 5);
+
+await dispatcher.dispatchAsync(new OrderCreatedEvent('ord-001'), 'order.created');
+// Output:
+// Listener A — warehouse notified
+```
+
+---
+
+#### Error Handling
+
+Unlike `dispatch()` which catches and logs errors silently, `dispatchAsync()`
+**re-throws errors** from async listeners so you can handle them at the call site.
+
+```typescript
+dispatcher.addListener('upload.initialize', async (event: UploadInitializedEvent) => {
+    const response = await fetch('/api/upload/init', { method: 'POST' });
+
+    if (!response.ok) {
+        throw new Error(`Upload initialization failed: ${response.status}`);
+    }
+
+    event.mediaId = (await response.json()).mediaId;
+});
+
+try {
+    const event = new UploadInitializedEvent('video.mp4');
+    await dispatcher.dispatchAsync(event, 'upload.initialize');
+    console.log('Media ID:', event.mediaId);
+} catch (error) {
+    // ✅ Error is propagated here — handle it as you see fit
+    console.error('Dispatch failed:', error.message);
+}
+```
+
+> **Note:** When an error is thrown, the remaining listeners in the chain
+> are **not called** and `dispatchNative()` is **not fired**.
+> The error propagates immediately to the caller.
+
+---
+
+#### dispatch() vs dispatchAsync()
+
+| | `dispatch()` | `dispatchAsync()` |
+|---|---|---|
+| **Listeners** | Sync + async (fire-and-forget) | Sync + async (awaited sequentially) |
+| **Async errors** | Caught and logged silently | Re-thrown to the caller |
+| **Read event after dispatch** | ❌ Not reliable for async listeners | ✅ Guaranteed |
+| **stopPropagation()** | ✅ Supported | ✅ Supported |
+| **Native notification** | ✅ Always fired | ✅ Fired after all listeners complete |
+| **Return type** | `T` | `Promise<T>` |
+| **Use when** | No async result needed | Async result must be read after dispatch |
 
 ## 🔄 Migration Guide
 

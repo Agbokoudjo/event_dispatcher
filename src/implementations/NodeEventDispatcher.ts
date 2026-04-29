@@ -18,18 +18,31 @@ import type {
 import type { EventListener } from '../types';
 import { AbstractEventDispatcher } from "./AbstractEventDispatcher";
 
+
 /**
- * Node.js-optimized EventDispatcher using native EventEmitter.
- * 
- * This implementation leverages Node.js's EventEmitter for better
- * performance and integration with the Node.js ecosystem.
- * 
- * Features:
- * - Uses Node.js EventEmitter for native integration
- * - Support for async listeners
- * - Memory leak warnings (default Node.js behavior)
- * - Process-level event handling capability
- * 
+ * Node.js-optimized EventDispatcher.
+ *
+ * Philosophy:
+ * ─────────────────────────────────────────────────────────────
+ * dispatch() is the single entry point. It does two things in order:
+ *
+ *   1. Iterates the internal Map → calls subscribers/listeners registered
+ *      via addListener() / addSubscriber(), in priority order.
+ *
+ *   2. Fires emitter.emit() on the native EventEmitter (dispatchNative) →
+ *      any code that used emitter.on() / emitter.addListener() DIRECTLY
+ *      (without going through this dispatcher) will also receive the event
+ *      automatically.
+ *
+ * This means the developer never needs to call dispatchNative() manually —
+ * a single dispatcher.dispatch() notifies both worlds.
+ *
+ * No double-call: addListener() stores listeners in the Map only, NOT on
+ * the native EventEmitter. The emitter is reserved for external listeners.
+ *
+ * Use dispatchAsync() when subscribers perform async work and results must
+ * be read from the event object after dispatch.
+ *
  * @author AGBOKOUDJO Franck <internationaleswebservices@gmail.com>
  */
 export class NodeEventDispatcher extends AbstractEventDispatcher implements EventDispatcherInterface {
@@ -45,47 +58,64 @@ export class NodeEventDispatcher extends AbstractEventDispatcher implements Even
         this.emitter.setMaxListeners(100); 
     }
 
-    public dispatch<T extends object>(event: T, eventName?: string | null): T {
-        const name = eventName ?? event.constructor.name;
+    /**
+     * Dispatches an event synchronously.
+     *
+     * Step 1 — Internal Map loop (priority order):
+     *   Calls all listeners registered via addListener() / addSubscriber().
+     *   stopPropagation() is honoured between each listener.
+     *   Async listeners are fire-and-forget (errors logged, not thrown).
+     *   Use dispatchAsync() if you need to await async listeners.
+     *
+     * Step 2 — Native EventEmitter (dispatchNative):
+     *   Fires emitter.emit() so that any external listener attached via
+     *   emitter.on() / getEmitter().on() also receives the event —
+     *   without ever registering through this dispatcher.
+     */
+    public override dispatch<T extends object>(event: T, eventName?: string | null): T {
+        // Step 1 — internal Map (inherited loop from AbstractEventDispatcher)
+        super.dispatch(event, eventName);
 
-        // Also emit on native EventEmitter for compatibility
-        this.emitter.emit(name, event);
-
-        if (!this.hasListeners(name)) {
-            return event;
-        }
-
-        // Get sorted listeners
-        const sortedListeners = this.getListeners(name) as EventListener[];
-
-        // Check if event is stoppable
-        const isStoppable = this.isStoppableEvent(event);
-
-        // Execute listeners in priority order
-        for (const listener of sortedListeners) {
-            // Check propagation before each listener
-            if (isStoppable && event.isPropagationStopped()) {
-                break;
-            }
-
-            try {
-                const result = listener(event);
-
-                // Handle async listeners
-                if (result instanceof Promise) {
-                    result.catch(error => {
-                        console.error(`Async error in event listener for "${name}":`, error);
-                    });
-                }
-            } catch (error) {
-                console.error(`Error in event listener for "${name}":`, error);
-                // Continue to next listener even if one fails
-            }
-        }
+        // Step 2 — native EventEmitter (external emitter.on() listeners)
+        this.dispatchNative(event, eventName);
 
         return event;
     }
 
+    /**
+     * Dispatches an event and awaits all listeners sequentially (priority order).
+     *
+     * Step 1 — awaits each async listener in the internal Map.
+     * Step 2 — fires emitter.emit() for external listeners (synchronous Node.js
+     *           EventEmitter — not awaited).
+     *
+     * Use this when subscribers perform async work (HTTP, DB, file I/O…) and
+     * you need to read results from the event object after dispatch.
+     *
+     * @example
+     * const event = new InitializingUploadEvent(options);
+     * await dispatcher.dispatchAsync(event, HttpFileUploaderEvents.INITIALIZE_UPLOAD);
+     * const mediaId = event.mediaId; // safely populated by the subscriber
+     */
+    public override async dispatchAsync<T extends object>(
+        event: T,
+        eventName?: string | null
+    ): Promise<T> {
+        // Step 1 — await internal Map listeners
+        await super.dispatchAsync(event, eventName);
+
+        // Step 2 — native EventEmitter (always sync in Node.js EventEmitter)
+        this.dispatchNative(event, eventName);
+
+        return event;
+    }
+
+    /**
+    * Registers a listener in the internal Map only.
+    *
+    * NOT attached to the native EventEmitter — that emitter is reserved for
+    * external listeners (emitter.on(), etc.) to avoid double-call.
+    */
     public addListener<T extends object = any>(
         eventName: string,
         listener: EventListener<T>,
@@ -99,13 +129,16 @@ export class NodeEventDispatcher extends AbstractEventDispatcher implements Even
         this.sorted.set(eventName, false);
     }
 
+    /**
+     * Removes a listener from the internal Map only.
+     * Has no effect on listeners attached directly via emitter.on().
+     * Does NOT call removeAllListeners() — external emitter listeners are untouched.
+     */
     public removeListener<T extends object = any>(
         eventName: string,
         listener: EventListener<T>
     ): void {
-        if (!this.listeners.has(eventName)) {
-            return;
-        }
+        if (!this.listeners.has(eventName)) return;
 
         const eventListeners = this.listeners.get(eventName)!;
         const index = eventListeners.findIndex(item => item.listener === listener);
@@ -117,11 +150,11 @@ export class NodeEventDispatcher extends AbstractEventDispatcher implements Even
         if (eventListeners.length === 0) {
             this.listeners.delete(eventName);
             this.sorted.delete(eventName);
-
-            // Remove all listeners from native EventEmitter
-            this.emitter.removeAllListeners(eventName);
+            // removeAllListeners() is NOT called — external emitter.on()
+            // listeners registered outside the dispatcher are never touched
         }
     }
+
 
     public getListeners(eventName?: string | null): EventListener[] | Map<string, EventListener[]> {
         if (eventName) {
@@ -169,10 +202,28 @@ export class NodeEventDispatcher extends AbstractEventDispatcher implements Even
     }
 
     /**
-     * Get the underlying EventEmitter.
-     * Useful for integration with Node.js native APIs.
+     * Returns the underlying EventEmitter.
+     *
+     * Pass a shared EventEmitter in the constructor to integrate with other
+     * modules — any emitter.on() call on that emitter will automatically
+     * receive events dispatched via dispatch().
+     *
+     * @example
+     * const sharedEmitter = new EventEmitter();
+     * const dispatcher = new NodeEventDispatcher(sharedEmitter);
+     *
+     * // Somewhere else in your app — no addListener() needed
+     * sharedEmitter.on('file.processed', (event) => {
+     *   console.log(event.fileName);
+     * });
+     *
+     * // This notifies both your subscribers AND the emitter listener
+     * dispatcher.dispatch(new FileProcessedEvent('video.mp4'), 'file.processed');
      */
-    public getEmitter(): EventEmitter { return this.emitter;}
+    public getEmitter(): EventEmitter {
+        return this.emitter;
+    }
+
 
     /**
      * Set the maximum number of listeners before warning.
@@ -190,4 +241,28 @@ export class NodeEventDispatcher extends AbstractEventDispatcher implements Even
         listeners.sort((a, b) => b.priority - a.priority);
         this.sorted.set(eventName, true);
     }
+
+    /**
+     * Fires emitter.emit() on the native EventEmitter.
+     *
+     * Called automatically by dispatch() and dispatchAsync().
+     * Can also be called manually if you want to notify native listeners
+     * without going through the internal Map.
+     *
+     * External listeners receive the original typed event object directly.
+     *
+     * @example
+     * // External code — no addListener() needed, works automatically
+     * dispatcher.getEmitter().on('file.processed', (event) => {
+     *   console.log(event.fileName);
+     * });
+     *
+     * dispatcher.dispatch(new FileProcessedEvent('video.mp4'), 'file.processed');
+     * // ↑ emitter listener receives the event automatically via dispatchNative
+     */
+    protected dispatchNative<T extends object>(event: T, eventName?: string | null): void {
+        const name = eventName ?? event.constructor.name;
+        this.emitter.emit(name, event);
+    }
+
 }

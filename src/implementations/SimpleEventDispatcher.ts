@@ -11,23 +11,27 @@
  */
 
 import { EventListener } from "../types";
-
-import type {
-    EventDispatcherInterface
-} from '../contracts';
+import type { EventDispatcherInterface } from '../contracts';
 import { AbstractEventDispatcher } from "./AbstractEventDispatcher";
 
 /**
- * Simple EventDispatcher implementation.
- * 
- * This is a reference implementation that works in any JavaScript environment.
- * Developers can use this as-is or create their own optimized implementations.
- * 
+ * Simple EventDispatcher — works in any JS environment (browser, Node, Deno, Bun).
+ *
+ * Reference implementation. No native primitive (EventTarget / EventEmitter)
+ * is involved — this is the purest Symfony-style dispatcher.
+ *
+ * dispatch() and dispatchAsync() are inherited from AbstractEventDispatcher.
+ *
  * @author AGBOKOUDJO Franck <internationaleswebservices@gmail.com>
  */
-export class SimpleEventDispatcher extends AbstractEventDispatcher  implements EventDispatcherInterface {
-    private readonly listeners: Map<string, Array<{ listener: EventListener; priority: number }>> ;
-    private readonly sorted: Map<string, boolean> ;
+export class SimpleEventDispatcher
+    extends AbstractEventDispatcher
+    implements EventDispatcherInterface {
+    private readonly listeners: Map<
+        string,
+        Array<{ listener: EventListener; priority: number }>
+    >;
+    private readonly sorted: Map<string, boolean>;
 
     constructor() {
         super();
@@ -35,17 +39,7 @@ export class SimpleEventDispatcher extends AbstractEventDispatcher  implements E
         this.sorted = new Map();
     }
 
-    public dispatch<T extends object>(event: T, eventName?: string | null): T {
-        const name = eventName ?? event.constructor.name;
-
-        if (!this.hasListeners(name)) {
-            return event;
-        }
-
-        this.doDispatch(this.getListeners(name) as EventListener[], name, event);
-
-        return event;
-    }
+    // ─── dispatch() and dispatchAsync() are inherited from AbstractEventDispatcher ───
 
     public addListener<T extends object = any>(
         eventName: string,
@@ -64,9 +58,7 @@ export class SimpleEventDispatcher extends AbstractEventDispatcher  implements E
         eventName: string,
         listener: EventListener<T>
     ): void {
-        if (!this.listeners.has(eventName)) {
-            return;
-        }
+        if (!this.listeners.has(eventName)) return;
 
         const eventListeners = this.listeners.get(eventName)!;
         const index = eventListeners.findIndex(item => item.listener === listener);
@@ -81,11 +73,11 @@ export class SimpleEventDispatcher extends AbstractEventDispatcher  implements E
         }
     }
 
-    public getListeners(eventName?: string | null): EventListener[] | Map<string, EventListener[]> {
+    public getListeners(
+        eventName?: string | null
+    ): EventListener[] | Map<string, EventListener[]> {
         if (eventName) {
-            if (!this.listeners.has(eventName)) {
-                return [];
-            }
+            if (!this.listeners.has(eventName)) return [];
 
             if (!this.sorted.get(eventName)) {
                 this.sortListeners(eventName);
@@ -95,11 +87,9 @@ export class SimpleEventDispatcher extends AbstractEventDispatcher  implements E
         }
 
         const allListeners = new Map<string, EventListener[]>();
-
         for (const [name] of this.listeners) {
             allListeners.set(name, this.getListeners(name) as EventListener[]);
         }
-
         return allListeners;
     }
 
@@ -107,12 +97,10 @@ export class SimpleEventDispatcher extends AbstractEventDispatcher  implements E
         eventName: string,
         listener: EventListener<T>
     ): number | null {
-        if (!this.listeners.has(eventName)) {
-            return null;
-        }
+        if (!this.listeners.has(eventName)) return null;
 
         const found = this.listeners
-            .get(eventName)! 
+            .get(eventName)!
             .find(item => item.listener === listener);
 
         return found ? found.priority : null;
@@ -120,21 +108,12 @@ export class SimpleEventDispatcher extends AbstractEventDispatcher  implements E
 
     public hasListeners(eventName?: string | null): boolean {
         if (eventName) {
-            return this.listeners.has(eventName) && this.listeners.get(eventName)!.length > 0;
+            return (
+                this.listeners.has(eventName) &&
+                this.listeners.get(eventName)!.length > 0
+            );
         }
-
         return this.listeners.size > 0;
-    }
-
-    private doDispatch(listeners: EventListener[], eventName: string, event: object): void {
-        for (const listener of listeners) {
-            if (this.isStoppableEvent(event) && event.isPropagationStopped()) {
-                break;
-            }
-
-            listener(event);
-        }
-        console.log(eventName)
     }
 
     private sortListeners(eventName: string): void {
