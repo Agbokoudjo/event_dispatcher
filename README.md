@@ -1,28 +1,22 @@
-# 📚 Complete Documentation for @wlindabla/event-dispatcher
-
-
-## 📄 README.md
-
-```markdown
 # @wlindabla/event-dispatcher
 
 A flexible, Symfony-inspired event dispatcher for JavaScript & TypeScript with optimized implementations for Browser and Node.js environments.
 
-Event Dispatcher is a robust and flexible event management library. 
+Event Dispatcher is a robust and flexible event management library.
 Unlike other dispatchers, it seamlessly bridges the gap between server-side and client-side development by leveraging native platform APIs while maintaining a consistent, priority-aware interface.
-
 
 ## ✨ Features
 
-- 🎯 **Symfony-inspired** - Familiar API for PHP developers
-- 🚀 **Environment-optimized** - Separate implementations for Browser (CustomEvent) and Node.js (EventEmitter)
-- 💪 **TypeScript-first** - Full type safety with generics
-- 🔄 **Priority-based listeners** - Control execution order
-- 🛑 **Stoppable events** - Halt propagation when needed
-- 📦 **Tree-shakeable** - Only bundle what you use
-- 🌐 **Universal** - Works in Browser, Node.js, Deno, and Workers
-- 🧪 **Well tested** - 73 tests with 100% coverage
-- ⚡ **Zero dependencies** - Lightweight and fast
+- 🎯 **Symfony-inspired** — Familiar API for PHP/Symfony developers
+- 🚀 **Environment-optimized** — Separate implementations for Browser (CustomEvent) and Node.js (EventEmitter)
+- ⚡ **Async-ready** — `dispatch()` for sync/fire-and-forget, `dispatchAsync()` for awaitable async listeners
+- 🌐 **Native bridge** — Every `dispatch()` automatically notifies native browser/Node.js listeners (no extra setup)
+- 💪 **TypeScript-first** — Full type safety with generics
+- 🔄 **Priority-based listeners** — Control execution order
+- 🛑 **Stoppable events** — Halt propagation when needed
+- 📦 **Tree-shakeable** — Only bundle what you use
+- 🧪 **Well tested** — 73 tests with 100% coverage
+- ⚡ **Zero dependencies** — Lightweight and fast
 
 ## 📦 Installation
 
@@ -40,29 +34,27 @@ pnpm add @wlindabla/event_dispatcher
 ## 🚀 Quick Start
 
 ```typescript
-import { createEventDispatcher, BaseEvent } from '@wlindabla/event_dispatcher';
+import { BrowserEventDispatcher } from '@wlindabla/event_dispatcher/browser';
+// or: import { NodeEventDispatcher } from '@wlindabla/event_dispatcher/node';
+// or: import { SimpleEventDispatcher } from '@wlindabla/event_dispatcher';
 
-// Create dispatcher (auto-detects environment)
-const dispatcher = new BrowserEventDispatcher() in browsers
-                   || new NodeEventDispatcher() in Node.js
-                   || new SimpleEventDispatcher() in other environments
-
-// Define custom event
-class UserCreatedEvent extends BaseEvent {
+// Define a custom event
+class UserCreatedEvent {
   constructor(
     public readonly userId: string,
     public readonly email: string
-  ) {
-    super();
-  }
+  ) {}
 }
 
-// Add listener
+// Create dispatcher
+const dispatcher = new BrowserEventDispatcher();
+
+// Add a listener
 dispatcher.addListener('user.created', (event: UserCreatedEvent) => {
   console.log(`User ${event.email} created with ID ${event.userId}`);
 });
 
-// Dispatch event
+// Dispatch the event
 const event = new UserCreatedEvent('123', 'user@example.com');
 dispatcher.dispatch(event, 'user.created');
 ```
@@ -74,26 +66,16 @@ dispatcher.dispatch(event, 'user.created');
 - [Adding Listeners](#adding-listeners)
 - [Event Subscribers](#event-subscribers)
 - [Stopping Propagation](#stopping-propagation)
+- [Async Listeners](#async-listeners)
+- [Native Platform Bridge](#native-platform-bridge)
 - [Environment-Specific Usage](#environment-specific-usage)
   - [Node.js Examples](#nodejs-examples)
   - [Browser Examples](#browser-examples)
 - [Advanced Usage](#advanced-usage)
 - [API Reference](#api-reference)
-    - [dispatch()](#dispatch)
-    - [dispatchAsync()](#dispatchasync)
-    - [Signature](#signature)
-    - [Parameters](#parameters)
-    - [Return Value](#return-value)
-    - [When to Use dispatchAsync()](#when-to-use-dispatchasync)
-    - [How It Works](#how-it-works)
-    - [Basic Usage](#basic-usage)
-    - [With BrowserEventDispatcher](#with-browsereventdispatcher)
-    - [With NodeEventDispatcher](#with-nodeeventdispatcher)
-    - [stopPropagation() Support](#stoppropagation-support)
-    - [Error Handling](#error-handling)
-    - [dispatch() vs dispatchAsync()](#dispatch-vs-dispatchasync)
-  
 - [Migration Guide](#migration-guide)
+- [Architecture](#architecture)
+- [FAQ](#faq)
 
 ---
 
@@ -101,34 +83,30 @@ dispatcher.dispatch(event, 'user.created');
 
 ### Event Dispatcher
 
-The Event Dispatcher is the central component that manages listeners and dispatches events. It follows the **Observer pattern** and provides:
+The Event Dispatcher is the central component that manages listeners and dispatches events. It follows the **Observer pattern** and is inspired by the [Symfony EventDispatcher component](https://symfony.com/doc/current/components/event_dispatcher.html), adapted for JavaScript's async nature and native browser/Node.js ecosystems.
 
-- **Decoupled architecture**: Components don't need to know about each other
-- **Priority control**: Define execution order of listeners
-- **Type safety**: Full TypeScript support with generics
-- **Flexibility**: Multiple implementations for different environments
+Every dispatcher has two layers working together on each `dispatch()` call:
+
+1. **Internal Map** — the single source of truth. Iterates your registered listeners in priority order. This is the Symfony-inspired core.
+2. **Native bridge** — automatically fires the event on the native `EventTarget` (browser) or `EventEmitter` (Node.js) so that external code using `window.addEventListener()` or `emitter.on()` also receives the event without registering through the dispatcher.
 
 ### Events
 
-Events are objects that carry data about something that happened in your application. They extend `BaseEvent` and can contain any data you need.
+Events are plain objects that carry data about something that happened in your application. They can optionally implement `StoppableEventInterface` to support propagation control.
 
 ### Listeners
 
-Listeners are functions that respond to events. They can be:
-- Simple functions
-- Class methods
-- Async functions
-- Prioritized (higher priority = executed first)
+Listeners are functions that respond to events. They can be synchronous or asynchronous, and are executed in priority order (higher priority first).
 
 ### Subscribers
 
-Subscribers are classes that listen to multiple events at once, making it easier to organize related event handlers.
+Subscribers are classes that declare which events they listen to and which methods handle them — exactly like Symfony's `EventSubscriberInterface`.
 
 ---
 
 ## 📝 Creating Events
 
-Events should extend `BaseEvent` and contain relevant data:
+Events are plain objects or class instances. Extend `BaseEvent` to get `stopPropagation()` support out of the box:
 
 ```typescript
 import { BaseEvent } from '@wlindabla/event_dispatcher';
@@ -143,15 +121,16 @@ class UserCreatedEvent extends BaseEvent {
   }
 }
 
-// Complex event with multiple data points
-class OrderPlacedEvent extends BaseEvent {
-  constructor(
-    public readonly orderId: string,
-    public readonly userId: string,
-    public readonly amount: number,
-    public readonly items: Array<{ id: string; quantity: number }>
-  ) {
+// Event with mutable result (useful with dispatchAsync)
+class InitializingUploadEvent extends BaseEvent {
+  public mediaId: string | null = null;
+
+  constructor(public readonly options: UploadOptions) {
     super();
+  }
+
+  setMediaId(id: string): void {
+    this.mediaId = id;
   }
 }
 
@@ -160,53 +139,44 @@ class ServerErrorEvent extends BaseEvent {
   constructor(
     public readonly error: Error,
     public readonly path: string,
-    public readonly method: string
+    public readonly method: string,
+    public readonly timestamp: Date = new Date()
   ) {
     super();
   }
 }
 ```
 
-**Best Practices:**
-- Use descriptive names ending with "Event"
-- Make properties `readonly` to prevent accidental modifications
-- Keep events immutable
-- Include all necessary context data
+**Best practices:**
+- Use descriptive names ending with `Event`
+- Make properties `readonly` unless the subscriber needs to write back a result
+- Include all necessary context data in the constructor
 
 ---
 
 ## 👂 Adding Listeners
 
-### Basic Listener
+### Basic listener
 
 ```typescript
-import { createEventDispatcher } from '@wlindabla/event_dispatcher';
-
-const dispatcher = createEventDispatcher();
-
 dispatcher.addListener('user.created', (event: UserCreatedEvent) => {
   console.log(`New user: ${event.email}`);
 });
 ```
 
-### Listener with Priority
+### Listener with priority
 
-Higher priority listeners execute first (default priority is 0):
+Higher priority listeners execute first (default priority is `0`):
 
 ```typescript
-// High priority - executes first
-dispatcher.addListener('order.placed', handlePayment, 100);
-
-// Medium priority
-dispatcher.addListener('order.placed', sendEmail, 50);
-
-// Low priority - executes last
-dispatcher.addListener('order.placed', updateInventory, 0);
+dispatcher.addListener('order.placed', handlePayment,      100); // first
+dispatcher.addListener('order.placed', sendEmail,           50); // second
+dispatcher.addListener('order.placed', updateInventory,      0); // last
 ```
 
-### Async Listeners
+### Async listeners
 
-Listeners can be asynchronous:
+Listeners can be asynchronous. Read the [Async Listeners](#async-listeners) section to understand when to use `dispatch()` vs `dispatchAsync()`.
 
 ```typescript
 dispatcher.addListener('user.created', async (event: UserCreatedEvent) => {
@@ -215,7 +185,7 @@ dispatcher.addListener('user.created', async (event: UserCreatedEvent) => {
 });
 ```
 
-### Removing Listeners
+### Removing a listener
 
 ```typescript
 const myListener = (event: UserCreatedEvent) => {
@@ -224,7 +194,7 @@ const myListener = (event: UserCreatedEvent) => {
 
 dispatcher.addListener('user.created', myListener);
 
-// Later, remove it
+// Later
 dispatcher.removeListener('user.created', myListener);
 ```
 
@@ -232,85 +202,153 @@ dispatcher.removeListener('user.created', myListener);
 
 ## 📢 Event Subscribers
 
-Subscribers allow you to organize multiple event listeners in a single class:
+Subscribers organize multiple event listeners in a single class — exactly like Symfony:
 
 ```typescript
-import { EventSubscriberInterface, BaseEvent } from '@wlindabla/event_dispatcher';
+import { EventSubscriberInterface } from '@wlindabla/event_dispatcher';
 
 class UserSubscriber implements EventSubscriberInterface {
   getSubscribedEvents() {
     return {
       'user.created': 'onUserCreated',
       'user.updated': { listener: 'onUserUpdated', priority: 10 },
-      'user.deleted': { listener: 'onUserDeleted', priority: 5 }
+      'user.deleted': { listener: 'onUserDeleted', priority: 5 },
     };
   }
 
   onUserCreated(event: UserCreatedEvent) {
     console.log(`User ${event.userId} created`);
-    // Send welcome email, create profile, etc.
   }
 
   onUserUpdated(event: UserUpdatedEvent) {
     console.log(`User ${event.userId} updated`);
-    // Update cache, notify subscribers, etc.
   }
 
   onUserDeleted(event: UserDeletedEvent) {
     console.log(`User ${event.userId} deleted`);
-    // Clean up data, send notifications, etc.
   }
 }
 
-// Register the subscriber
 dispatcher.addSubscriber(new UserSubscriber());
 
-// Remove it later if needed
+// Remove all its listeners later
 dispatcher.removeSubscriber(subscriber);
 ```
-
-**Benefits of Subscribers:**
-- ✅ Organize related listeners together
-- ✅ Easier to test
-- ✅ Better code organization
-- ✅ Reusable across different dispatchers
 
 ---
 
 ## 🛑 Stopping Propagation
-
-Stop event propagation to prevent subsequent listeners from executing:
 
 ```typescript
 class ValidationEvent extends BaseEvent {
   public isValid: boolean = true;
 }
 
-// High priority validator
 dispatcher.addListener('order.validate', (event: ValidationEvent) => {
   if (!event.isValid) {
-    console.log('Validation failed - stopping propagation');
-    event.stopPropagation();
+    event.stopPropagation(); // next listeners won't run
   }
 }, 100);
 
-// This won't execute if validation fails
 dispatcher.addListener('order.validate', (event: ValidationEvent) => {
-  console.log('Processing valid order');
+  console.log('Processing valid order'); // skipped if propagation stopped
 }, 50);
 
 const event = new ValidationEvent();
 event.isValid = false;
 dispatcher.dispatch(event, 'order.validate');
-// Output: "Validation failed - stopping propagation"
-// The second listener is NOT called
 ```
 
-**Use Cases:**
-- Form validation (stop on first error)
-- Authorization checks (stop if unauthorized)
-- Circuit breakers (stop on system overload)
-- Conditional workflows
+**Use cases:** form validation, authorization checks, circuit breakers, conditional workflows.
+
+---
+
+## ⚡ Async Listeners
+
+This is a JavaScript extension beyond Symfony. Two methods are available depending on your needs:
+
+### `dispatch()` — fire-and-forget for async listeners
+
+Use this when your async listeners run independently and you don't need to read any result from the event object after dispatch.
+
+```typescript
+dispatcher.addListener('email.send', async (event: EmailEvent) => {
+  await mailer.send(event.to, event.subject); // runs in background
+});
+
+dispatcher.dispatch(emailEvent, 'email.send');
+// Returns immediately — async listener runs in background
+// Errors are caught and logged automatically
+```
+
+### `dispatchAsync()` — awaitable, sequential async listeners
+
+Use this when a subscriber performs async work (HTTP, DB, file I/O…) and **you need to read the result from the event object after dispatch**.
+
+`stopPropagation()` is honoured between each awaited listener.
+
+```typescript
+dispatcher.addListener('upload.init', async (event: InitializingUploadEvent) => {
+  const response = await fetch('/api/upload/init', { method: 'POST' });
+  const data = await response.json();
+  event.setMediaId(data.mediaId); // write result back to event
+});
+
+const event = new InitializingUploadEvent(options);
+await dispatcher.dispatchAsync(event, 'upload.init');
+
+console.log(event.mediaId); // ✅ safely populated by the subscriber
+```
+
+### Choosing between the two
+
+| Situation | Use |
+|---|---|
+| Async listeners run independently, no result needed | `dispatch()` |
+| You need to read a result from the event after dispatch | `dispatchAsync()` |
+| Subscribers do HTTP / DB / file I/O and must complete before you continue | `dispatchAsync()` |
+| Simple sync listeners | `dispatch()` |
+
+---
+
+## 🌐 Native Platform Bridge
+
+This is what makes this dispatcher unique compared to a plain Symfony port.
+
+When you call `dispatch()` or `dispatchAsync()`, the dispatcher automatically does two things:
+
+1. Iterates its internal Map of listeners (your subscribers, in priority order)
+2. Fires the event on the **native platform primitive** (`EventTarget` in browsers, `EventEmitter` in Node.js)
+
+This means any code using the native API directly — **without ever going through `addListener()`** — automatically receives the event:
+
+```typescript
+// Browser
+const dispatcher = new BrowserEventDispatcher(window);
+
+window.addEventListener('user.login', (e) => {
+  const event = (e as CustomEvent).detail; // your typed event object
+  console.log('Received natively:', event.username);
+});
+
+// This single call notifies BOTH your subscribers AND the window listener
+dispatcher.dispatch(new UserLoginEvent('franck'), 'user.login');
+```
+
+```typescript
+// Node.js
+const sharedEmitter = new EventEmitter();
+const dispatcher = new NodeEventDispatcher(sharedEmitter);
+
+sharedEmitter.on('file.processed', (event: FileProcessedEvent) => {
+  console.log('Received natively:', event.fileName);
+});
+
+// This single call notifies BOTH your subscribers AND the emitter listener
+dispatcher.dispatch(new FileProcessedEvent('video.mp4'), 'file.processed');
+```
+
+**Important:** listeners registered via `addListener()` are stored in the internal Map only — not on the native primitive. This avoids any double-call. The native primitive is exclusively for external/third-party listeners.
 
 ---
 
@@ -320,7 +358,7 @@ dispatcher.dispatch(event, 'order.validate');
 
 ## 🟢 Node.js Examples
 
-### Example 1: Express.js Error Handling with Async Logging
+### Example 1: Express.js error handling
 
 ```typescript
 // events/ServerErrorEvent.ts
@@ -341,7 +379,6 @@ export class ServerErrorEvent extends BaseEvent {
 ```typescript
 // subscribers/ErrorLoggerSubscriber.ts
 import { EventSubscriberInterface } from '@wlindabla/event_dispatcher';
-import { ServerErrorEvent } from '../events/ServerErrorEvent';
 
 export class ErrorLoggerSubscriber implements EventSubscriberInterface {
   getSubscribedEvents() {
@@ -351,12 +388,9 @@ export class ErrorLoggerSubscriber implements EventSubscriberInterface {
   }
 
   onServerError(event: ServerErrorEvent) {
-    console.error(`--- [AUDIT LOG] ---`);
-    console.error(`Error on: ${event.method} ${event.path}`);
+    console.error(`[AUDIT LOG] ${event.method} ${event.path}`);
     console.error(`Message: ${event.error.message}`);
     console.error(`Time: ${event.timestamp.toISOString()}`);
-    console.error(`Stack: ${event.error.stack}`);
-    console.error(`-------------------`);
   }
 }
 ```
@@ -365,424 +399,206 @@ export class ErrorLoggerSubscriber implements EventSubscriberInterface {
 // server.ts
 import express from 'express';
 import { NodeEventDispatcher } from '@wlindabla/event_dispatcher/node';
-import { ServerErrorEvent } from './events/ServerErrorEvent';
-import { ErrorLoggerSubscriber } from './subscribers/ErrorLoggerSubscriber';
 
 const app = express();
 const dispatcher = new NodeEventDispatcher();
 
-// Register subscriber for console logging
 dispatcher.addSubscriber(new ErrorLoggerSubscriber());
 
-// Async database logging (lower priority)
-const saveErrorToDB = async (event: ServerErrorEvent) => {
-  console.log(`[DB] Saving error to database...`);
-  
-  try {
-    // Simulate database save
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // In real app: await ErrorLog.create({ ... })
-    console.log(`[DB] ✅ Error saved successfully`);
-  } catch (dbError) {
-    console.error(`[DB] ❌ Failed to save error:`, dbError);
-  }
-};
-
-dispatcher.addListener('ServerErrorEvent', saveErrorToDB, -200);
-
-// Optional: Send to external monitoring service
+// Async listener — fire-and-forget (dispatch() is enough here)
 dispatcher.addListener('ServerErrorEvent', async (event: ServerErrorEvent) => {
-  // await sendToSentry(event);
-  console.log('[Monitoring] Error reported to external service');
-}, -300);
+  await saveErrorToDatabase(event);
+}, -200);
 
-// Routes
-app.get('/bug', (req, res) => {
-  throw new Error('Intentional error for testing');
-});
-
-app.get('/api/users', (req, res) => {
-  // Simulate an error
-  throw new Error('Database connection failed');
-});
-
-// Error handling middleware (must be last!)
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  // Dispatch the error event
-  const event = new ServerErrorEvent(err, req.path, req.method);
-  dispatcher.dispatch(event);
-
-  // Send response
-  res.status(500).json({
-    error: 'Internal Server Error',
-    message: process.env.NODE_ENV === 'development' ? err.message : undefined
-  });
+  dispatcher.dispatch(new ServerErrorEvent(err, req.path, req.method));
+  res.status(500).json({ error: 'Internal Server Error' });
 });
 
-const PORT = 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`Test error handling: http://localhost:${PORT}/bug`);
-});
-```
-
-**Test it:**
-```bash
-curl http://localhost:3000/bug
-```
-
-**Expected output:**
-```
---- [AUDIT LOG] ---
-Error on: GET /bug
-Message: Intentional error for testing
-Time: 2025-01-31T19:00:00.000Z
-Stack: Error: Intentional error for testing...
--------------------
-[DB] Saving error to database...
-[Monitoring] Error reported to external service
-[DB] ✅ Error saved successfully
+app.listen(3000);
 ```
 
 ---
 
-### Example 2: User Access Tracking with Native EventEmitter Integration
+### Example 2: Async subscriber that must complete before continuing
 
 ```typescript
-// events/UserAccessEvent.ts
-import { BaseEvent } from '@wlindabla/event_dispatcher';
-
-export class UserAccessEvent extends BaseEvent {
-  constructor(
-    public readonly path: string,
-    public readonly timestamp: number,
-    public readonly userAgent?: string
-  ) {
-    super();
-  }
-}
-```
-
-```typescript
-// server.ts
-import express from 'express';
 import { NodeEventDispatcher } from '@wlindabla/event_dispatcher/node';
-import { UserAccessEvent } from './events/UserAccessEvent';
 
-const app = express();
+class MediaUploadInitEvent extends BaseEvent {
+  public mediaId: string | null = null;
+  setMediaId(id: string) { this.mediaId = id; }
+}
+
 const dispatcher = new NodeEventDispatcher();
 
-// 1. High-priority listener via Dispatcher
+dispatcher.addListener('upload.init', async (event: MediaUploadInitEvent) => {
+  const response = await fetch('https://api.example.com/upload/init', {
+    method: 'POST'
+  });
+  const data = await response.json();
+  event.setMediaId(data.mediaId); // write result back
+});
+
+// Use dispatchAsync — we need event.mediaId after dispatch
+const event = new MediaUploadInitEvent();
+await dispatcher.dispatchAsync(event, 'upload.init');
+
+console.log('Media ID:', event.mediaId); // ✅ defined
+```
+
+---
+
+### Example 3: Native EventEmitter integration
+
+```typescript
+import { NodeEventDispatcher } from '@wlindabla/event_dispatcher/node';
+import { EventEmitter } from 'node:events';
+
+const sharedEmitter = new EventEmitter();
+const dispatcher = new NodeEventDispatcher(sharedEmitter);
+
+// Registered via dispatcher — uses internal Map
 dispatcher.addListener('UserAccessEvent', (event: UserAccessEvent) => {
-  console.log(`[Dispatcher - High Priority] Access to ${event.path} recorded`);
+  console.log('[Dispatcher] Access recorded:', event.path);
 }, 100);
 
-// 2. Native EventEmitter integration
-// This demonstrates that the dispatcher also emits on Node's native EventEmitter
-dispatcher.getEmitter().on('UserAccessEvent', (event: UserAccessEvent) => {
-  console.log(`[Native Node.js] System signal received for ${event.path}`);
+// Registered on native emitter directly — no addListener() needed
+sharedEmitter.on('UserAccessEvent', (event: UserAccessEvent) => {
+  console.log('[Native Node.js] Signal received:', event.path);
 });
 
-// 3. Analytics listener
-dispatcher.addListener('UserAccessEvent', async (event: UserAccessEvent) => {
-  // Send to analytics service
-  console.log(`[Analytics] Tracking page view: ${event.path}`);
-}, 50);
+// One dispatch call — both listeners receive the event
+dispatcher.dispatch(new UserAccessEvent('/api/users'), 'UserAccessEvent');
 
-// Middleware to track all requests
-app.use((req, res, next) => {
-  const event = new UserAccessEvent(
-    req.path,
-    Date.now(),
-    req.get('user-agent')
-  );
-  
-  dispatcher.dispatch(event);
-  next();
-});
-
-app.get('/test', (req, res) => {
-  res.json({
-    message: 'Event dispatched successfully',
-    path: req.path,
-    timestamp: Date.now()
-  });
-});
-
-app.get('/api/data', (req, res) => {
-  res.json({ data: 'sample data' });
-});
-
-const PORT = 3000;
-app.listen(PORT, () => {
-  console.log(`\n🚀 Server ready on http://localhost:${PORT}/test`);
-  console.log(`👀 Watch console for event logs...\n`);
-});
-```
-
-**Test it:**
-```bash
-curl http://localhost:3000/test
-```
-
-**Expected output:**
-```
-[Dispatcher - High Priority] Access to /test recorded
-[Analytics] Tracking page view: /test
-[Native Node.js] System signal received for /test
+// Output:
+// [Dispatcher] Access recorded: /api/users      ← from internal Map (priority 100)
+// [Native Node.js] Signal received: /api/users  ← from native emitter bridge
 ```
 
 ---
 
-### Example 3: Event-Driven Microservice Communication
+### Example 4: Microservice event-driven communication
 
 ```typescript
-import { NodeEventDispatcher } from '@wlindabla/event_dispatcher/node';
-import { BaseEvent } from '@wlindabla/event_dispatcher';
-
-class OrderCreatedEvent extends BaseEvent {
-  constructor(
-    public readonly orderId: string,
-    public readonly userId: string,
-    public readonly total: number
-  ) {
-    super();
-  }
-}
-
 const dispatcher = new NodeEventDispatcher();
 
-// Payment service listener
 dispatcher.addListener('order.created', async (event: OrderCreatedEvent) => {
-  console.log(`[Payment Service] Processing payment for order ${event.orderId}`);
+  console.log(`[Payment] Processing ${event.orderId}`);
   // await paymentService.process(event.orderId, event.total);
 }, 100);
 
-// Inventory service listener
 dispatcher.addListener('order.created', async (event: OrderCreatedEvent) => {
-  console.log(`[Inventory Service] Reserving items for order ${event.orderId}`);
+  console.log(`[Inventory] Reserving items for ${event.orderId}`);
   // await inventoryService.reserve(event.orderId);
 }, 90);
 
-// Notification service listener
 dispatcher.addListener('order.created', async (event: OrderCreatedEvent) => {
-  console.log(`[Notification Service] Sending confirmation to user ${event.userId}`);
-  // await notificationService.sendOrderConfirmation(event);
+  console.log(`[Notification] Sending confirmation to ${event.userId}`);
+  // await notificationService.send(event);
 }, 80);
 
-// Dispatch the event
-const event = new OrderCreatedEvent('ORD-001', 'USER-123', 99.99);
-dispatcher.dispatch(event, 'order.created');
+dispatcher.dispatch(new OrderCreatedEvent('ORD-001', 'USER-123', 99.99), 'order.created');
 ```
 
 ---
 
 ## 🌐 Browser Examples
 
-### Example 1: Interactive UI with Custom Events
-
-```html
-<!-- index.html -->
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Browser Event Dispatcher Demo</title>
-  <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      padding: 20px;
-      max-width: 800px;
-      margin: 0 auto;
-      line-height: 1.6;
-    }
-    
-    button {
-      padding: 12px 24px;
-      font-size: 16px;
-      cursor: pointer;
-      background: #007bff;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      margin: 5px;
-      transition: background 0.3s;
-    }
-    
-    button:hover {
-      background: #0056b3;
-    }
-    
-    #log {
-      background: #f8f9fa;
-      padding: 15px;
-      border-radius: 6px;
-      height: 300px;
-      overflow-y: auto;
-      border: 1px solid #dee2e6;
-      font-family: 'Courier New', monospace;
-      font-size: 14px;
-    }
-    
-    .log-entry {
-      padding: 5px;
-      margin: 3px 0;
-      border-left: 3px solid #007bff;
-      padding-left: 10px;
-    }
-    
-    .log-entry.priority {
-      border-left-color: #28a745;
-      background: #d4edda;
-    }
-    
-    .log-entry.native {
-      border-left-color: #ffc107;
-      background: #fff3cd;
-    }
-  </style>
-</head>
-<body>
-  <h1>🎯 Browser Event Dispatcher Demo</h1>
-  
-  <div>
-    <button id="btn-click">Trigger User Action</button>
-    <button id="btn-submit">Submit Form</button>
-    <button id="btn-clear">Clear Logs</button>
-  </div>
-  
-  <h3>Event Logs:</h3>
-  <div id="log"></div>
-
-  <script type="module" src="./app.ts"></script>
-</body>
-</html>
-```
+### Example 1: Interactive UI
 
 ```typescript
-// app.ts
 import { BrowserEventDispatcher } from '@wlindabla/event_dispatcher/browser';
-import { BaseEvent } from '@wlindabla/event_dispatcher';
 
-// Initialize dispatcher
-const dispatcher = new BrowserEventDispatcher();
-const logElement = document.getElementById('log')!;
+const dispatcher = new BrowserEventDispatcher(window);
 
-// Logging utility
-const logger = (msg: string, className: string = '') => {
-  const entry = document.createElement('div');
-  entry.className = `log-entry ${className}`;
-  entry.innerHTML = `<small>${new Date().toLocaleTimeString()}</small> ${msg}`;
-  logElement.appendChild(entry);
-  logElement.scrollTop = logElement.scrollHeight;
-  console.log(msg);
-};
-
-// Define custom events
 class UserActionEvent extends BaseEvent {
-  constructor(
-    public readonly action: string,
-    public readonly timestamp: number = Date.now()
-  ) {
-    super();
-  }
+  constructor(public readonly action: string) { super(); }
 }
 
-class FormSubmitEvent extends BaseEvent {
-  constructor(
-    public readonly formId: string,
-    public readonly data: Record<string, any>
-  ) {
-    super();
-  }
-}
-
-// Add high-priority listener
+// Registered via dispatcher
 dispatcher.addListener('UserActionEvent', (event: UserActionEvent) => {
-  logger(`🎯 <b>[High Priority]</b> User action: <b>${event.action}</b>`, 'priority');
+  console.log('[High Priority] Action:', event.action);
 }, 100);
 
-// Add normal listener
 dispatcher.addListener('UserActionEvent', (event: UserActionEvent) => {
-  logger(`📊 [Analytics] Tracking action: ${event.action}`);
+  console.log('[Analytics] Tracking:', event.action);
 }, 50);
 
-// Native DOM integration
-dispatcher.getEventTarget().addEventListener('UserActionEvent', (e: Event) => {
-  const customEvent = e as CustomEvent<UserActionEvent>;
-  logger(`🔔 [Native DOM] CustomEvent captured by EventTarget`, 'native');
+// Registered on window directly — no addListener() needed
+window.addEventListener('UserActionEvent', (e) => {
+  const event = (e as CustomEvent).detail;
+  console.log('[Native DOM] Captured:', event.action);
 });
 
-// Form submission handler
-dispatcher.addListener('FormSubmitEvent', (event: FormSubmitEvent) => {
-  logger(`📝 Form "${event.formId}" submitted with data: ${JSON.stringify(event.data)}`);
+document.getElementById('btn')?.addEventListener('click', () => {
+  // One dispatch — all three listeners receive the event
+  dispatcher.dispatch(new UserActionEvent('BUTTON_CLICK'));
 });
 
-// Button click handlers
-document.getElementById('btn-click')?.addEventListener('click', () => {
-  const event = new UserActionEvent('BUTTON_CLICK');
-  dispatcher.dispatch(event);
-});
-
-document.getElementById('btn-submit')?.addEventListener('click', () => {
-  const event = new FormSubmitEvent('user-form', {
-    username: 'john_doe',
-    email: 'john@example.com'
-  });
-  dispatcher.dispatch(event);
-});
-
-document.getElementById('btn-clear')?.addEventListener('click', () => {
-  logElement.innerHTML = '';
-  logger('🧹 Logs cleared');
-});
-
-// Initial message
-logger('✅ Event dispatcher initialized and ready!', 'priority');
+// Output on click:
+// [High Priority] Action: BUTTON_CLICK   ← from internal Map (priority 100)
+// [Analytics] Tracking: BUTTON_CLICK     ← from internal Map (priority 50)
+// [Native DOM] Captured: BUTTON_CLICK    ← from native EventTarget bridge
 ```
 
 ---
 
-### Example 2: SPA Navigation with Event Tracking
+### Example 2: Async upload with dispatchAsync
 
 ```typescript
 import { BrowserEventDispatcher } from '@wlindabla/event_dispatcher/browser';
-import { BaseEvent } from '@wlindabla/event_dispatcher';
 
-class NavigationEvent extends BaseEvent {
-  constructor(
-    public readonly from: string,
-    public readonly to: string
-  ) {
-    super();
-  }
+class InitializingUploadEvent extends BaseEvent {
+  public mediaId: string | null = null;
+  setMediaId(id: string) { this.mediaId = id; }
+  constructor(public readonly file: File) { super(); }
 }
 
 const dispatcher = new BrowserEventDispatcher();
 
-// Analytics tracking
-dispatcher.addListener('navigation', (event: NavigationEvent) => {
-  console.log(`📍 Navigating from ${event.from} to ${event.to}`);
-  // gtag('event', 'page_view', { page_path: event.to });
+dispatcher.addListener('upload.init', async (event: InitializingUploadEvent) => {
+  const formData = new FormData();
+  formData.append('name', event.file.name);
+
+  const response = await fetch('/api/upload/init', {
+    method: 'POST',
+    body: formData
+  });
+  const data = await response.json();
+  event.setMediaId(data.mediaId);
 });
 
-// Update breadcrumbs
-dispatcher.addListener('navigation', (event: NavigationEvent) => {
-  updateBreadcrumbs(event.to);
-});
+// Use dispatchAsync — we need event.mediaId after dispatch
+const file = input.files![0];
+const event = new InitializingUploadEvent(file);
+await dispatcher.dispatchAsync(event, 'upload.init');
 
-// Save to history
+console.log('Media ID ready:', event.mediaId); // ✅ defined
+startChunkedUpload(event.mediaId!);
+```
+
+---
+
+### Example 3: SPA Navigation
+
+```typescript
+const dispatcher = new BrowserEventDispatcher();
+
+class NavigationEvent extends BaseEvent {
+  constructor(public readonly from: string, public readonly to: string) { super(); }
+}
+
+dispatcher.addListener('navigation', (event: NavigationEvent) => {
+  console.log(`Navigating from ${event.from} to ${event.to}`);
+}, 100);
+
 dispatcher.addListener('navigation', (event: NavigationEvent) => {
   window.history.pushState({}, '', event.to);
-});
+}, 50);
 
-// Usage
 function navigateTo(newPath: string) {
-  const currentPath = window.location.pathname;
-  const event = new NavigationEvent(currentPath, newPath);
-  dispatcher.dispatch(event, 'navigation');
+  dispatcher.dispatch(new NavigationEvent(window.location.pathname, newPath), 'navigation');
 }
 ```
 
@@ -790,67 +606,56 @@ function navigateTo(newPath: string) {
 
 ## 🎯 Advanced Usage
 
-### Creating Custom Dispatcher Implementations
+### Event chaining
 
 ```typescript
-import type { EventDispatcherInterface } from '@wlindabla/event_dispatcher';
-
-class WorkerEventDispatcher implements EventDispatcherInterface {
-  // Implement all interface methods
-  // Optimized for Web Workers or Service Workers
-  
-  dispatch<T extends object>(event: T, eventName?: string | null): T {
-    // Custom implementation using postMessage, etc.
-    return event;
-  }
-  
-  // ... implement other methods
-}
+dispatcher.addListener('user.created', (event: UserCreatedEvent) => {
+  // Dispatch another event from within a listener
+  const profileEvent = new ProfileCreatedEvent(event.userId);
+  dispatcher.dispatch(profileEvent, 'profile.created');
+});
 ```
 
-### Conditional Event Dispatching
+### Conditional dispatching
 
 ```typescript
 dispatcher.addListener('data.changed', (event: DataChangedEvent) => {
   if (event.source === 'external') {
-    // Only handle external changes
     refreshUI();
   }
 });
 ```
 
-### Event Chaining
-
-```typescript
-dispatcher.addListener('user.created', (event: UserCreatedEvent) => {
-  // Dispatch another event
-  const profileEvent = new ProfileCreatedEvent(event.userId);
-  dispatcher.dispatch(profileEvent, 'profile.created');
-});
-
-dispatcher.addListener('profile.created', (event: ProfileCreatedEvent) => {
-  console.log('Profile created for user:', event.userId);
-});
-```
-
-### Testing Events
+### Testing
 
 ```typescript
 import { describe, it, expect, vi } from 'vitest';
 import { SimpleEventDispatcher } from '@wlindabla/event_dispatcher';
 
 describe('User Events', () => {
-  it('should dispatch user created event', () => {
+  it('dispatches user.created to all listeners', () => {
     const dispatcher = new SimpleEventDispatcher();
     const listener = vi.fn();
-    
+
     dispatcher.addListener('user.created', listener);
-    
-    const event = new UserCreatedEvent('123', 'test@example.com');
-    dispatcher.dispatch(event, 'user.created');
-    
-    expect(listener).toHaveBeenCalledWith(event);
+    dispatcher.dispatch(new UserCreatedEvent('123', 'test@example.com'), 'user.created');
+
     expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ userId: '123' }));
+  });
+
+  it('awaits async listeners with dispatchAsync', async () => {
+    const dispatcher = new SimpleEventDispatcher();
+    const event = new InitializingUploadEvent(options);
+
+    dispatcher.addListener('upload.init', async (e: InitializingUploadEvent) => {
+      await Promise.resolve();
+      e.setMediaId('media-123');
+    });
+
+    await dispatcher.dispatchAsync(event, 'upload.init');
+
+    expect(event.mediaId).toBe('media-123');
   });
 });
 ```
@@ -861,19 +666,26 @@ describe('User Events', () => {
 
 ---
 
-### `EventDispatcherInterface`
+### `AbstractEventDispatcher`
+
+Base class inherited by all dispatcher implementations.
+
+---
 
 #### `dispatch<T>(event: T, eventName?: string | null): T`
 
-Dispatches an event to all registered listeners.
+Dispatches an event synchronously to all registered listeners in priority order.
+
+Async listeners are **fire-and-forget**: their Promise errors are caught and logged automatically, but `dispatch()` does not await them.
+
+For `BrowserEventDispatcher` and `NodeEventDispatcher`, also automatically fires the event on the native platform primitive after the Map loop.
 
 **Parameters:**
-- `event`: The event object to dispatch
-- `eventName` (optional): Event name. If omitted, uses `event.constructor.name`
+- `event` — the event object to dispatch
+- `eventName` *(optional)* — event name. Defaults to `event.constructor.name`
 
-**Returns:** The same event object (for chaining)
+**Returns:** the same event object
 
-**Example:**
 ```typescript
 const event = new UserCreatedEvent('123', 'user@example.com');
 dispatcher.dispatch(event, 'user.created');
@@ -881,16 +693,39 @@ dispatcher.dispatch(event, 'user.created');
 
 ---
 
-#### `addListener<T>(eventName: string, listener: EventListener<T>, priority?: number): void`
+#### `dispatchAsync<T>(event: T, eventName?: string | null): Promise<T>`
 
-Adds a listener for a specific event.
+Dispatches an event and **awaits each listener sequentially**, in priority order.
+
+Use this when subscribers perform async work (HTTP, DB, file I/O…) and you need to read results from the event object after dispatch. `stopPropagation()` is honoured between each awaited listener.
+
+For `BrowserEventDispatcher` and `NodeEventDispatcher`, also fires the event on the native platform primitive after all async listeners have completed.
 
 **Parameters:**
-- `eventName`: The event to listen to
-- `listener`: Callback function `(event: T) => void | Promise<void>`
-- `priority` (optional): Execution priority (default: 0). Higher = earlier
+- `event` — the event object to dispatch
+- `eventName` *(optional)* — event name. Defaults to `event.constructor.name`
 
-**Example:**
+**Returns:** `Promise<T>` — resolves with the same event object once all listeners have completed
+
+**Throws:** re-throws any error thrown by a listener so the caller can handle it
+
+```typescript
+const event = new InitializingUploadEvent(options);
+await dispatcher.dispatchAsync(event, 'upload.init');
+const mediaId = event.mediaId; // ✅ safely populated
+```
+
+---
+
+#### `addListener<T>(eventName: string, listener: EventListener<T>, priority?: number): void`
+
+Registers a listener for a specific event in the internal Map.
+
+**Parameters:**
+- `eventName` — the event to listen to
+- `listener` — callback `(event: T) => void | Promise<void>`
+- `priority` *(optional)* — execution priority (default: `0`). Higher = earlier
+
 ```typescript
 dispatcher.addListener('user.created', (event) => {
   console.log('User created:', event.userId);
@@ -899,27 +734,15 @@ dispatcher.addListener('user.created', (event) => {
 
 ---
 
-#### `addSubscriber(subscriber: EventSubscriberInterface): void`
+#### `removeListener<T>(eventName: string, listener: EventListener<T>): void`
 
-Registers an event subscriber.
-
-**Parameters:**
-- `subscriber`: Object implementing `EventSubscriberInterface`
-
-**Example:**
-```typescript
-dispatcher.addSubscriber(new UserSubscriber());
-```
+Removes a specific listener from the internal Map.
 
 ---
 
-#### `removeListener<T>(eventName: string, listener: EventListener<T>): void`
+#### `addSubscriber(subscriber: EventSubscriberInterface): void`
 
-Removes a specific listener.
-
-**Parameters:**
-- `eventName`: The event name
-- `listener`: The listener function to remove
+Registers all listeners declared by a subscriber.
 
 ---
 
@@ -929,375 +752,88 @@ Removes all listeners registered by a subscriber.
 
 ---
 
+#### `hasListeners(eventName?: string | null): boolean`
+
+Returns `true` if at least one listener is registered for the given event (or any event if `eventName` is omitted).
+
+---
+
 #### `getListeners(eventName?: string | null): EventListener[] | Map<string, EventListener[]>`
 
-Gets listeners for a specific event or all listeners.
-
-**Parameters:**
-- `eventName` (optional): Specific event name, or omit for all listeners
-
-**Returns:**
-- Array of listeners if `eventName` provided
-- Map of all listeners if `eventName` omitted
+Returns listeners for a specific event, or a Map of all listeners.
 
 ---
 
 #### `getListenerPriority<T>(eventName: string, listener: EventListener<T>): number | null`
 
-Gets the priority of a specific listener.
-
-**Returns:** Priority number or `null` if not found
-
----
-
-#### `hasListeners(eventName?: string | null): boolean`
-
-Checks if listeners exist.
-
-**Parameters:**
-- `eventName` (optional): Check specific event, or omit to check if any listeners exist
+Returns the priority of a specific listener, or `null` if not found.
 
 ---
 
 ### `BaseEvent`
 
-Base class for all events.
+Base class for all events. Implements `StoppableEventInterface`.
 
 #### `stopPropagation(): void`
 
-Stops event propagation to further listeners.
+Stops propagation — subsequent listeners will not be called.
 
 #### `isPropagationStopped(): boolean`
 
-Checks if propagation has been stopped.
-
-**Returns:** `true` if stopped, `false` otherwise
+Returns `true` if propagation has been stopped.
 
 ---
 
-### Environment-Specific Methods
+### Environment-specific methods
 
-#### BrowserEventDispatcher
+#### `BrowserEventDispatcher`
+
+##### `dispatchNative<T>(event: T, eventName?: string | null): void`
+
+Fires a `CustomEvent` on the native `EventTarget` manually.
+Called automatically by `dispatch()` and `dispatchAsync()` — you rarely need to call this directly.
+
+External listeners receive the original event object via `(e as CustomEvent).detail`.
 
 ##### `getEventTarget(): EventTarget`
 
-Returns the underlying native `EventTarget`.
+Returns the underlying `EventTarget`. Pass `window` or `document` in the constructor to share it with the rest of your application.
 
 ```typescript
-const target = dispatcher.getEventTarget();
-target.addEventListener('custom-event', handler);
+const dispatcher = new BrowserEventDispatcher(window);
+// window.addEventListener('my.event', fn) now works automatically
 ```
 
 ---
 
-#### NodeEventDispatcher
+#### `NodeEventDispatcher`
+
+##### `dispatchNative<T>(event: T, eventName?: string | null): void`
+
+Fires `emitter.emit()` on the native `EventEmitter` manually.
+Called automatically by `dispatch()` and `dispatchAsync()` — you rarely need to call this directly.
 
 ##### `getEmitter(): EventEmitter`
 
-Returns the underlying Node.js `EventEmitter`.
-
-```typescript
-const emitter = dispatcher.getEmitter();
-emitter.on('custom-event', handler);
-```
+Returns the underlying `EventEmitter`. Pass a shared emitter in the constructor to integrate with other modules.
 
 ##### `setMaxListeners(n: number): void`
 
-Sets the maximum number of listeners (default: 100).
+Sets the maximum number of listeners (default: `100`).
 
 ##### `getMaxListeners(): number`
 
-Gets the current maximum listeners limit.
+Returns the current maximum listeners limit.
 
 ---
-
----
-
-## Overview
-
-> This section is a placeholder for your existing overview content.
-
----
-
-## API Reference
-
-### dispatch()
-
-> This section is a placeholder for your existing `dispatch()` documentation.
-
----
-
-### dispatchAsync()
-
-`dispatchAsync()` is an extension beyond the Symfony EventDispatcher pattern,
-designed specifically for JavaScript's async nature.  
-It dispatches an event and **awaits each listener sequentially**, in priority order,
-before moving to the next one.
-
----
-
-#### Signature
-
-```typescript
-public async dispatchAsync<T extends object>(
-    event: T,
-    eventName?: string | null
-): Promise<T>
-```
-
----
-
-#### Parameters
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `event` | `T extends object` | ✅ Yes | The event object to dispatch. Mutated in place by listeners (e.g. `event.mediaId = ...`). |
-| `eventName` | `string \| null` | ❌ No | The event name. Defaults to `event.constructor.name` if omitted. |
-
----
-
-#### Return Value
-
-Returns `Promise<T>` — the same event object passed in, after all listeners have been awaited.  
-Since listeners mutate the event in place, you can read their results directly from the event object after `await`.
-
----
-
-#### When to Use dispatchAsync()
-
-Use `dispatchAsync()` when **at least one subscriber performs an async operation**
-(HTTP request, database call, file I/O, etc.) **and you need to read the result
-from the event object after dispatch.**
-
-```typescript
-// ✅ Use dispatchAsync() — subscriber sets event.mediaId asynchronously
-const event = new InitializingUploadEvent(options);
-await dispatcher.dispatchAsync(event, 'upload.initialize');
-console.log(event.mediaId); // safely populated by the subscriber
-
-// ✅ Use dispatch() — no async result needed
-dispatcher.dispatch(new UserLoggedInEvent(user), 'user.login');
-```
-
----
-
-#### How It Works
-
-`dispatchAsync()` executes listeners **sequentially** — it awaits each one before
-calling the next. This guarantees two things:
-
-- **Priority order is preserved** — a listener with priority `10` fully completes
-  before the listener with priority `5` starts.
-- **`stopPropagation()` works correctly** — a listener can stop the chain
-  even inside an async flow.
-
-After the internal Map loop completes, the native primitive is notified automatically:
-
-- **Browser** → `eventTarget.dispatchEvent(CustomEvent)` is fired,
-  so external `window.addEventListener()` listeners also receive the event.
-- **Node.js** → `emitter.emit()` is fired,
-  so external `emitter.on()` listeners also receive the event.
-
-```
-await dispatcher.dispatchAsync(event, 'upload.initialize')
-        │
-        ├─ await listener A (priority 10) — e.g. HTTP POST /upload/init
-        │         └─ event.mediaId = response.mediaId  ✓
-        │
-        ├─ await listener B (priority 5)  — e.g. log to DB
-        │         └─ completes            ✓
-        │
-        └─ dispatchNative() — notifies window / emitter external listeners
-```
-
----
-
-#### Basic Usage
-
-```typescript
-import { SimpleEventDispatcher } from '@wlindabla/event_dispatcher';
-
-class UploadInitializedEvent {
-    public mediaId: string | null = null;
-
-    constructor(public readonly fileName: string) {}
-}
-
-const dispatcher = new SimpleEventDispatcher();
-
-// Async subscriber — sets event.mediaId after HTTP call
-dispatcher.addListener('upload.initialize', async (event: UploadInitializedEvent) => {
-    const response = await fetch('/api/upload/init', {
-        method: 'POST',
-        body: JSON.stringify({ fileName: event.fileName }),
-    });
-    const data = await response.json();
-    event.mediaId = data.mediaId;
-});
-
-// Dispatch and await — mediaId is guaranteed to be set after this line
-const event = new UploadInitializedEvent('video.mp4');
-await dispatcher.dispatchAsync(event, 'upload.initialize');
-
-console.log(event.mediaId); // ✅ "med_abc123"
-```
-
----
-
-#### With BrowserEventDispatcher
-
-```typescript
-import { BrowserEventDispatcher } from '@wlindabla/event_dispatcher';
-
-// Pass window so external addEventListener() listeners are notified automatically
-const dispatcher = new BrowserEventDispatcher(window);
-
-// External listener — no addListener() needed
-window.addEventListener('upload.initialize', (e) => {
-    const event = (e as CustomEvent).detail as UploadInitializedEvent;
-    console.log('Native listener received:', event.mediaId);
-    // Note: mediaId is already set here because dispatchNative()
-    // is called AFTER all async listeners have completed
-});
-
-// Subscriber via dispatcher
-dispatcher.addListener('upload.initialize', async (event: UploadInitializedEvent) => {
-    const response = await fetch('/api/upload/init', { method: 'POST' });
-    const data = await response.json();
-    event.mediaId = data.mediaId;
-});
-
-const event = new UploadInitializedEvent('image.png');
-await dispatcher.dispatchAsync(event, 'upload.initialize');
-
-// At this point:
-// ✅ dispatcher subscriber has run and set event.mediaId
-// ✅ window listener has been notified with the populated event
-console.log(event.mediaId); // "med_xyz789"
-```
-
----
-
-#### With NodeEventDispatcher
-
-```typescript
-import { NodeEventDispatcher } from '@wlindabla/event_dispatcher';
-import { EventEmitter } from 'node:events';
-
-const sharedEmitter = new EventEmitter();
-const dispatcher = new NodeEventDispatcher(sharedEmitter);
-
-// External listener — no addListener() needed
-sharedEmitter.on('file.processed', (event: FileProcessedEvent) => {
-    console.log('Native emitter listener received:', event.result);
-    // Note: event.result is already set here because dispatchNative()
-    // is called AFTER all async listeners have completed
-});
-
-// Subscriber via dispatcher
-dispatcher.addListener('file.processed', async (event: FileProcessedEvent) => {
-    const result = await processFile(event.filePath);
-    event.result = result;
-});
-
-const event = new FileProcessedEvent('/uploads/video.mp4');
-await dispatcher.dispatchAsync(event, 'file.processed');
-
-// At this point:
-// ✅ dispatcher subscriber has run and set event.result
-// ✅ sharedEmitter listener has been notified with the populated event
-console.log(event.result); // { size: 1024, duration: 120 }
-```
-
----
-
-#### stopPropagation() Support
-
-`dispatchAsync()` fully honours `stopPropagation()`.  
-Once a listener calls `event.stopPropagation()`, no further listeners are called —
-even if they are async.
-
-```typescript
-class OrderCreatedEvent {
-    private stopped = false;
-
-    isPropagationStopped(): boolean { return this.stopped; }
-    stopPropagation(): void { this.stopped = true; }
-
-    constructor(public readonly orderId: string) {}
-}
-
-dispatcher.addListener('order.created', async (event: OrderCreatedEvent) => {
-    await notifyWarehouse(event.orderId);
-    console.log('Listener A — warehouse notified');
-    event.stopPropagation(); // ← stops the chain here
-}, 10);
-
-dispatcher.addListener('order.created', async (event: OrderCreatedEvent) => {
-    // ❌ Never reached — propagation was stopped by listener A
-    await sendConfirmationEmail(event.orderId);
-    console.log('Listener B — email sent');
-}, 5);
-
-await dispatcher.dispatchAsync(new OrderCreatedEvent('ord-001'), 'order.created');
-// Output:
-// Listener A — warehouse notified
-```
-
----
-
-#### Error Handling
-
-Unlike `dispatch()` which catches and logs errors silently, `dispatchAsync()`
-**re-throws errors** from async listeners so you can handle them at the call site.
-
-```typescript
-dispatcher.addListener('upload.initialize', async (event: UploadInitializedEvent) => {
-    const response = await fetch('/api/upload/init', { method: 'POST' });
-
-    if (!response.ok) {
-        throw new Error(`Upload initialization failed: ${response.status}`);
-    }
-
-    event.mediaId = (await response.json()).mediaId;
-});
-
-try {
-    const event = new UploadInitializedEvent('video.mp4');
-    await dispatcher.dispatchAsync(event, 'upload.initialize');
-    console.log('Media ID:', event.mediaId);
-} catch (error) {
-    // ✅ Error is propagated here — handle it as you see fit
-    console.error('Dispatch failed:', error.message);
-}
-```
-
-> **Note:** When an error is thrown, the remaining listeners in the chain
-> are **not called** and `dispatchNative()` is **not fired**.
-> The error propagates immediately to the caller.
-
----
-
-#### dispatch() vs dispatchAsync()
-
-| | `dispatch()` | `dispatchAsync()` |
-|---|---|---|
-| **Listeners** | Sync + async (fire-and-forget) | Sync + async (awaited sequentially) |
-| **Async errors** | Caught and logged silently | Re-thrown to the caller |
-| **Read event after dispatch** | ❌ Not reliable for async listeners | ✅ Guaranteed |
-| **stopPropagation()** | ✅ Supported | ✅ Supported |
-| **Native notification** | ✅ Always fired | ✅ Fired after all listeners complete |
-| **Return type** | `T` | `Promise<T>` |
-| **Use when** | No async result needed | Async result must be read after dispatch |
 
 ## 🔄 Migration Guide
 
-### From Native EventEmitter (Node.js)
+### From native EventEmitter (Node.js)
 
 **Before:**
 ```typescript
 import { EventEmitter } from 'events';
-
 const emitter = new EventEmitter();
 emitter.on('user.created', handler);
 emitter.emit('user.created', data);
@@ -1305,10 +841,10 @@ emitter.emit('user.created', data);
 
 **After:**
 ```typescript
-import { NodeEventDispatcher, BaseEvent } from '@wlindabla/event_dispatcher/node';
+import { NodeEventDispatcher } from '@wlindabla/event_dispatcher/node';
 
 class UserCreatedEvent extends BaseEvent {
-  constructor(public data: any) { super(); }
+  constructor(public readonly data: any) { super(); }
 }
 
 const dispatcher = new NodeEventDispatcher();
@@ -1316,33 +852,27 @@ dispatcher.addListener('user.created', (event) => handler(event.data));
 dispatcher.dispatch(new UserCreatedEvent(data), 'user.created');
 ```
 
-**Benefits:**
-- ✅ Type safety
-- ✅ Priority support
-- ✅ Event objects
-- ✅ Stoppable propagation
-
 ---
 
 ### From DOM Events (Browser)
 
 **Before:**
 ```typescript
-document.addEventListener('custom-event', handler);
-document.dispatchEvent(new CustomEvent('custom-event', { detail: data }));
+document.addEventListener('my-event', handler);
+document.dispatchEvent(new CustomEvent('my-event', { detail: data }));
 ```
 
 **After:**
 ```typescript
-import { BrowserEventDispatcher, BaseEvent } from '@wlindabla/event_dispatcher/browser';
+import { BrowserEventDispatcher } from '@wlindabla/event_dispatcher/browser';
 
-class CustomEvent extends BaseEvent {
-  constructor(public data: any) { super(); }
+class MyEvent extends BaseEvent {
+  constructor(public readonly data: any) { super(); }
 }
 
-const dispatcher = new BrowserEventDispatcher();
-dispatcher.addListener('custom-event', handler);
-dispatcher.dispatch(new CustomEvent(data), 'custom-event');
+const dispatcher = new BrowserEventDispatcher(document);
+dispatcher.addListener('my-event', (event) => handler(event.data));
+dispatcher.dispatch(new MyEvent(data), 'my-event');
 ```
 
 ---
@@ -1351,20 +881,39 @@ dispatcher.dispatch(new CustomEvent(data), 'custom-event');
 
 ```
 @wlindabla/event-dispatcher
-├── contracts/              # TypeScript interfaces
+├── contracts/
 │   ├── EventDispatcherInterface
 │   ├── StoppableEventInterface
 │   └── EventSubscriberInterface
-├── events/                # Base event classes
+├── events/
 │   └── BaseEvent
-├── implementations/       # Concrete implementations
-│   ├── SimpleEventDispatcher       (Universal)
-│   ├── BrowserEventDispatcher      (Browser-optimized)
-│   └── NodeEventDispatcher         (Node.js-optimized)
-├── types/                 # Type definitions
+├── implementations/
+│   ├── AbstractEventDispatcher     (dispatch, dispatchAsync, addSubscriber…)
+│   ├── SimpleEventDispatcher       (universal — no native primitive)
+│   ├── BrowserEventDispatcher      (Map + EventTarget bridge)
+│   └── NodeEventDispatcher         (Map + EventEmitter bridge)
+├── types/
 │   └── EventListener
-└── utils/                 # Helper functions
+└── utils/
     └── createEventDispatcher
+```
+
+**How dispatch works:**
+
+```
+dispatcher.dispatch(event, 'my.event')
+         │
+         ├─ Step 1: Internal Map loop (priority order)
+         │          listener A (priority 100) ✓
+         │          listener B (priority 50)  ✓
+         │          stopPropagation() honoured
+         │
+         └─ Step 2: Native bridge (automatic)
+                    Browser → eventTarget.dispatchEvent(CustomEvent)
+                    Node    → emitter.emit(name, event)
+                              ↓
+                    window.addEventListener / emitter.on listeners ✓
+                    (no addListener() needed on their side)
 ```
 
 ---
@@ -1372,38 +921,51 @@ dispatcher.dispatch(new CustomEvent(data), 'custom-event');
 ## 📊 Performance
 
 | Implementation | Environment | Dispatches/sec | Memory |
-|----------------|-------------|----------------|--------|
+|---|---|---|---|
 | SimpleEventDispatcher | Universal | ~500K | Low |
-| BrowserEventDispatcher | Browser | ~800K | Very Low (WeakMap) |
+| BrowserEventDispatcher | Browser | ~800K | Very Low |
 | NodeEventDispatcher | Node.js | ~1M | Low |
 
-*Benchmarks run on Node.js >18 and Chrome >120*
+*Benchmarks run on Node.js ≥18 and Chrome ≥120*
 
 ---
 
 ## 🧪 Testing
 
 ```bash
-# Run all tests
-yarn test
-
-# Watch mode
-yarn test:watch
-
-# Coverage report
-yarn test:coverage
-
-# Specific test file
-yarn test:BaseEvent
+yarn test            # run all tests
+yarn test:watch      # watch mode
+yarn test:coverage   # coverage report
 ```
 
 ---
 
-##
+## ❓ FAQ
 
-🤝 Contributing
+**Can I use this in production?**
+Yes. The library is fully tested with 73 tests and 100% code coverage.
 
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+**Does it work with React / Vue / Angular?**
+Yes. It's framework-agnostic.
+
+**Can listeners be async?**
+Yes. Use `dispatch()` for fire-and-forget async listeners, and `dispatchAsync()` when you need to await them and read results from the event object.
+
+**What's the difference between `dispatch()` and `dispatchAsync()`?**
+`dispatch()` is synchronous — async listeners run in the background and errors are logged. `dispatchAsync()` awaits each listener sequentially so you can safely read results from the event object after it returns.
+
+**Do I need to call `dispatchNative()` manually?**
+No. `dispatch()` and `dispatchAsync()` call it automatically. Use `dispatchNative()` only if you want to notify native listeners *without* going through your registered subscribers.
+
+**What's the bundle size?**
+~2.5 KB gzipped for the full bundle, ~1.2–1.8 KB for individual implementations.
+
+**How is this different from EventEmitter?**
+Type safety, priority support, structured event objects, `stopPropagation()`, async-aware dispatch, and automatic native bridge — all in one consistent API across browser and Node.js.
+
+---
+
+## 🤝 Contributing
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
@@ -1432,60 +994,8 @@ MIT © [AGBOKOUDJO Franck](https://github.com/Agbokoudjo)
 
 ## 🙏 Acknowledgments
 
-- Inspired by [Symfony EventDispatcher](https://symfony.com/doc/current/components/event_dispatcher.html)
-- Built with ❤️ for the JavaScript/TypeScript community
-
----
-
-## 🔗 Links
-
-- [npm Package](https://www.npmjs.com/package/@wlindabla/event_dispatcher)
-- [GitHub Repository](https://github.com/Agbokoudjo/event_dispatcher)
-- [Issue Tracker](https://github.com/Agbokoudjo/event_dispatcher/issues)
-- [Changelog](https://github.com/Agbokoudjo/event_dispatcher/blob/main/CHANGELOG.md)
-
----
-
-## ❓ FAQ
-
-### Q: Can I use this in production?
-
-**A:** Yes! The library is fully tested with 73 tests and 100% code coverage.
-
-### Q: Does it work with React/Vue/Angular?
-
-**A:** Yes! It's framework-agnostic and works with any JavaScript framework.
-
-### Q: What's the bundle size?
-
-**A:** ~2.5 KB gzipped for the full bundle, or ~1.2-1.8 KB for individual implementations.
-
-### Q: Can I use it with TypeScript?
-
-**A:** Absolutely! The library is written in TypeScript and provides full type definitions.
-
-### Q: How is this different from EventEmitter?
-
-**A:** We provide type safety, priority support, event objects, multiple implementations, and more developer-friendly APIs.
-
-### Q: Can listeners be async?
-
-**A:** Yes! Both sync and async listeners are fully supported.
+Inspired by [Symfony EventDispatcher](https://symfony.com/doc/current/components/event_dispatcher.html) — built with ❤️ for the JavaScript/TypeScript community.
 
 ---
 
 **Made with ❤️ by AGBOKOUDJO Franck**
-```
-
-This documentation provides:
-- ✅ Complete installation instructions
-- ✅ Real-world Node.js examples (Express.js error handling, tracking)
-- ✅ Real-world Browser examples (Interactive UI)
-- ✅ Full API reference
-- ✅ Migration guides
-- ✅ Best practices
-- ✅ Testing examples
-- ✅ FAQ section
-- ✅ Professional formatting
-
-Save this as your `README.md` file! 
