@@ -83,12 +83,12 @@ export class BrowserEventDispatcher extends AbstractEventDispatcher  implements 
      * The CustomEvent dispatched natively is independent and can be cancelled
      * via nativeEvent.stopPropagation() on the browser side.
      */
-    public override dispatch<T extends object>(event: T, eventName?: string | null): T {
+    public override dispatch<T extends object>(event: T, eventName?: string | null, _customOptions?: CustomEventOptions): T {
         // Step 1 — internal Map (inherited loop from AbstractEventDispatcher)
         super.dispatch(event, eventName);
 
         // Step 2 — native EventTarget (external window/document listeners)
-        this.dispatchNative(event, eventName);
+        this.dispatchNative(event, eventName, _customOptions);
 
         return event;
     }
@@ -110,13 +110,14 @@ export class BrowserEventDispatcher extends AbstractEventDispatcher  implements 
      */
     public override async dispatchAsync<T extends object>(
         event: T,
-        eventName?: string | null
+        eventName?: string | null,
+        _customOptions?: CustomEventOptions
     ): Promise<T> {
         // Step 1 — await internal Map listeners
         await super.dispatchAsync(event, eventName);
 
         // Step 2 — native EventTarget (always sync on the browser side)
-        this.dispatchNative(event, eventName);
+        this.dispatchNative(event, eventName,_customOptions);
 
         return event;
     }
@@ -279,13 +280,13 @@ export class BrowserEventDispatcher extends AbstractEventDispatcher  implements 
      * dispatcher.dispatch(new UserLoginEvent('franck'), 'user.login');
      * // ↑ window listener receives the event automatically via dispatchNative
      */
-    private dispatchNative<T extends object>(event: T, eventName?: string | null): void {
+    private dispatchNative<T extends object>(event: T, eventName?: string | null, _customOptions?: CustomEventOptions): void {
         const name = eventName ?? event.constructor.name;
         const customEvent = new CustomEvent(name, {
             detail: event,
-            bubbles: this.options?.bubbles ?? false,
-            cancelable: this.options?.cancelable ?? true,
-            composed: this.options?.composed ?? true,
+            bubbles: _customOptions?.bubbles || this.options?.bubbles || true,
+            cancelable: _customOptions?.cancelable || this.options?.cancelable || true,
+            composed: _customOptions?.composed || this.options?.composed || true,
         });
         this.eventTarget.dispatchEvent(customEvent);
     }

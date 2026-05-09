@@ -332,10 +332,12 @@ window.addEventListener('user.login', (e) => {
 });
 
 // This single call notifies BOTH your subscribers AND the window listener
-dispatcher.dispatch(new UserLoginEvent('franck'), 'user.login');
+dispatcher.dispatch(new UserLoginEvent('franck'), 'user.login',{bubbles: true,
+ cancelable:true,
+  composed: true});
 ```
 
-```typescript
+```typescript 
 // Node.js
 const sharedEmitter = new EventEmitter();
 const dispatcher = new NodeEventDispatcher(sharedEmitter);

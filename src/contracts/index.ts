@@ -89,7 +89,7 @@ export interface EventDispatcherInterface {
      * dispatcher.dispatch(event, 'user.created');
      * ```
      */
-    dispatch<T extends object>(event: T, eventName?: string | null): T;
+    dispatch<T extends object>(event: T, eventName?: string | null, ...otherArgs: any): T;
 
     /**
      * Dispatches an event and awaits each listener sequentially,
@@ -105,7 +105,7 @@ export interface EventDispatcherInterface {
      * await dispatcher.dispatchAsync(event, HttpFileUploaderEvents.INITIALIZE_UPLOAD);
      * const mediaId = event.mediaId; // safely populated by the subscriber
      */
-    dispatchAsync<T extends object>(event: T, eventName?: string | null): Promise<T>;
+    dispatchAsync<T extends object>(event: T, eventName?: string | null, ...otherArgs: any): Promise<T>;
     
     /**
      * Adds an event listener that listens on the specified event.
