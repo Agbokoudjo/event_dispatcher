@@ -172,7 +172,7 @@ export class BrowserEventDispatcher extends AbstractEventDispatcher  implements 
 
         if (index !== -1) {
             const item = eventListeners[index];
-            if (item) { // On vérifie explicitement que l'item existe
+            if (item) { 
                 const { wrappedListener } = item;
                 this.eventTarget.removeEventListener(eventName, wrappedListener);   // Remove from native EventTarget
                 eventListeners.splice(index, 1);  // Remove from our map

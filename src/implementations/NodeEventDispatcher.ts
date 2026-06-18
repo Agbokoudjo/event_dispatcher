@@ -18,7 +18,6 @@ import type {
 import type { EventListener } from '../types';
 import { AbstractEventDispatcher } from "./AbstractEventDispatcher";
 
-
 /**
  * Node.js-optimized EventDispatcher.
  *

@@ -47,10 +47,11 @@ export abstract class AbstractEventDispatcher {
     public addSubscriber(subscriber: EventSubscriberInterface): void {
         const events = subscriber.getSubscribedEvents();
         const boundListeners = new Map<string, EventListener>();
+        let listenerName: string;    
+        let priority: number;       
 
         for (const [eventName, params] of Object.entries(events)) {
-            let listenerName: string;
-            let priority = 0;
+            priority = 0;
 
             if (typeof params === 'string') {
                 listenerName = params;
@@ -127,6 +128,7 @@ export abstract class AbstractEventDispatcher {
             if (isStoppable && (event as StoppableEventInterface).isPropagationStopped()) {
                 break;
             }
+            
             try {
                 const result = listener(event);
                 // Fire-and-forget for async listeners — log but do NOT propagate

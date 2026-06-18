@@ -10,13 +10,6 @@
  * For more information, please feel free to contact the author.
  */
 
-/*
- * This file is part of the project by AGBOKOUDJO Franck.
- *
- * (c) AGBOKOUDJO Franck <internationaleswebservices@gmail.com>
- * For more information, please feel free to contact the author.
- */
-
 import { EventListener } from "../types";
 
 /**
